@@ -23,7 +23,7 @@ import {
 } from "@/lib/mock-data";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const USE_MOCK = true; // Toggle to false when real API is wired
+const USE_MOCK = false; // Set true for demo without backend running
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyData = any;
@@ -62,19 +62,29 @@ export default function ProcessPage() {
   async function fetchStatus() {
     try {
       const resp = await fetch(`${API_URL}/api/process/${id}`);
-      if (resp.status === 202) {
-        setStatus("processing");
-        return;
-      }
       if (resp.status === 404) {
         setStatus("not_found");
         return;
       }
       if (resp.ok) {
         const data = await resp.json();
-        setPipelineOutput(data);
-        setStatus("pipeline_complete");
-        fetchCopilot();
+        // API returns {status, pipeline_output: null} when not yet processed
+        // or the full PipelineOutput when done
+        if (data.pipeline_output === null || data.status === "uploaded") {
+          setStatus("uploaded");
+          return;
+        }
+        if (data.status === "processing") {
+          setStatus("processing");
+          setTimeout(fetchStatus, 2000);
+          return;
+        }
+        // If we got activities, it's a PipelineOutput
+        if (data.activities) {
+          setPipelineOutput(data);
+          setStatus("pipeline_complete");
+          fetchCopilot();
+        }
       }
     } catch {
       setStatus("not_found");
@@ -96,14 +106,36 @@ export default function ProcessPage() {
 
   async function triggerPipeline() {
     setStatus("processing");
-    await fetch(`${API_URL}/api/process/${id}/run-pipeline`, { method: "POST" });
-    setTimeout(fetchStatus, 2000);
+    try {
+      const resp = await fetch(`${API_URL}/api/process/${id}/run-pipeline`, { method: "POST" });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.status === "pipeline_complete") {
+          fetchStatus();
+          return;
+        }
+      }
+      setTimeout(fetchStatus, 2000);
+    } catch {
+      setStatus("error");
+    }
   }
 
   async function triggerAnalysis() {
     setStatus("analyzing");
-    await fetch(`${API_URL}/api/process/${id}/analyze`, { method: "POST" });
-    setTimeout(fetchStatus, 2000);
+    try {
+      const resp = await fetch(`${API_URL}/api/process/${id}/analyze`, { method: "POST" });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.status === "complete") {
+          fetchStatus();
+          return;
+        }
+      }
+      setTimeout(fetchStatus, 2000);
+    } catch {
+      setStatus("error");
+    }
   }
 
   if (status === "loading") {
@@ -123,7 +155,7 @@ export default function ProcessPage() {
 
   const stats = pipelineOutput?.statistics;
   const maxFreq = Math.max(
-    ...(pipelineOutput?.process_steps?.map((s: AnyData) => s.frequency) || [1])
+    ...(pipelineOutput?.activities?.map((s: AnyData) => s.frequency) || [1])
   );
 
   return (
@@ -145,7 +177,7 @@ export default function ProcessPage() {
       <Separator className="bg-zinc-800" />
 
       {/* Pipeline Controls */}
-      {!pipelineOutput && status !== "processing" && (
+      {!pipelineOutput && (status === "uploaded" || status === "ready") && (
         <Card className="border-zinc-800 bg-zinc-900">
           <CardContent className="py-6 text-center space-y-3">
             <p className="text-sm text-zinc-400">
@@ -162,7 +194,7 @@ export default function ProcessPage() {
           {[
             { label: "Cases", value: stats.total_cases },
             { label: "Events", value: stats.total_events?.toLocaleString() },
-            { label: "Process Steps", value: stats.total_process_steps },
+            { label: "Process Steps", value: stats.total_activities },
             { label: "Variants", value: stats.total_variants },
             { label: "Users", value: stats.total_users },
             { label: "Applications", value: stats.total_applications },
@@ -172,7 +204,7 @@ export default function ProcessPage() {
             },
             {
               label: "Date Range",
-              value: `${stats.date_range_start?.slice(5)} — ${stats.date_range_end?.slice(5)}`,
+              value: `${(stats.start_date || stats.date_range_start || "")?.slice(5)} — ${(stats.end_date || stats.date_range_end || "")?.slice(5)}`,
             },
           ].map((item) => (
             <Card key={item.label} className="border-zinc-800 bg-zinc-900">
@@ -188,14 +220,14 @@ export default function ProcessPage() {
       )}
 
       {/* Process Steps */}
-      {pipelineOutput?.process_steps && (
+      {pipelineOutput?.activities && (
         <Card className="border-zinc-800 bg-zinc-900">
           <CardHeader>
             <CardTitle className="text-base">Process Steps</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {pipelineOutput.process_steps
+              {pipelineOutput.activities
                 .sort((a: AnyData, b: AnyData) => b.frequency - a.frequency)
                 .map((step: AnyData) => (
                   <div key={step.name} className="space-y-1">
@@ -252,7 +284,7 @@ export default function ProcessPage() {
                 {pipelineOutput.bottlenecks.map((bn: AnyData, i: number) => (
                   <TableRow key={i} className="border-zinc-800">
                     <TableCell className="font-medium">
-                      {bn.from_step} → {bn.to_step}
+                      {bn.from_activity} → {bn.to_activity}
                     </TableCell>
                     <TableCell className="font-[family-name:var(--font-geist-mono)]">
                       {formatDuration(bn.avg_wait_seconds)}

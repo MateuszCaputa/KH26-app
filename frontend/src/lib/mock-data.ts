@@ -6,7 +6,7 @@
 
 export const MOCK_PIPELINE_OUTPUT = {
   process_id: "demo-001",
-  process_steps: [
+  activities: [
     {
       name: "Communication",
       frequency: 342,
@@ -150,32 +150,32 @@ export const MOCK_PIPELINE_OUTPUT = {
   ],
   bottlenecks: [
     {
-      from_step: "Code Review",
-      to_step: "Deployment",
+      from_activity: "Code Review",
+      to_activity: "Deployment",
       avg_wait_seconds: 14400,
       max_wait_seconds: 86400,
       case_count: 38,
       severity: "critical",
     },
     {
-      from_step: "Working on kyp-backend",
-      to_step: "Code Review",
+      from_activity: "Working on kyp-backend",
+      to_activity: "Code Review",
       avg_wait_seconds: 7200,
       max_wait_seconds: 43200,
       case_count: 52,
       severity: "high",
     },
     {
-      from_step: "Communication",
-      to_step: "Working on kyp-backend",
+      from_activity: "Communication",
+      to_activity: "Working on kyp-backend",
       avg_wait_seconds: 3600,
       max_wait_seconds: 18000,
       case_count: 67,
       severity: "medium",
     },
     {
-      from_step: "Youtrack Tasks",
-      to_step: "Working on kyp-frontend",
+      from_activity: "Youtrack Tasks",
+      to_activity: "Working on kyp-frontend",
       avg_wait_seconds: 1800,
       max_wait_seconds: 7200,
       case_count: 30,
@@ -209,14 +209,14 @@ export const MOCK_PIPELINE_OUTPUT = {
   statistics: {
     total_cases: 140,
     total_events: 48520,
-    total_process_steps: 8,
+    total_activities: 8,
     total_variants: 5,
     total_users: 5,
     total_applications: 18,
     avg_case_duration_seconds: 28800,
     median_case_duration_seconds: 25200,
-    date_range_start: "2026-03-01",
-    date_range_end: "2026-03-20",
+    start_date: "2026-03-01",
+    end_date: "2026-03-20",
   },
   application_usage: [
     { application: "Teams", total_duration_seconds: 427200, active_duration_seconds: 306720, passive_duration_seconds: 120480 },
