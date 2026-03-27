@@ -31,12 +31,15 @@ def generate_recommendations(pipeline_output: PipelineOutput) -> list[Recommenda
     impacts = _assign_impacts_by_rank(len(top))
     ai_reasonings = _generate_reasonings_with_llm(top, bottleneck_severity_map)
 
+    priorities = _assign_priorities_by_rank(len(top))
+
     recommendations = []
-    for rank, ((score, activity, automation_type), impact) in enumerate(zip(top, impacts), start=1):
+    for rank, ((score, activity, automation_type), impact, priority) in enumerate(
+        zip(top, impacts, priorities), start=1
+    ):
         reasoning = ai_reasonings.get(rank) or _generate_reasoning(
             activity, automation_type, bottleneck_severity_map, score
         )
-        priority = _score_to_priority(score)
         time_saved = _estimate_time_saved(activity, automation_type)
 
         recommendations.append(Recommendation(
@@ -178,23 +181,44 @@ def _determine_automation_type(
 ) -> str:
     """Determine the most appropriate automation type."""
     is_bottleneck = bottleneck_map.get(activity.name, 0.0) > 0.5
-    has_copy_paste = activity.copy_paste_count > 0
-    is_long = activity.avg_duration_seconds > 300
-    is_frequent = activity.frequency > 10
-    many_performers = len(activity.performers) > 3
+    heavy_copy_paste = activity.copy_paste_count > 200
+    moderate_copy_paste = activity.copy_paste_count > 30
+    is_long = activity.avg_duration_seconds > 15
+    is_very_frequent = activity.frequency > 300
+    is_frequent = activity.frequency > 50
+    many_performers = len(activity.performers) > 2
+    multi_app = len(activity.applications) > 1
 
-    if has_copy_paste and is_frequent:
-        return "automate"  # RPA for data transfer
+    # RPA: heavy copy-paste = clear data transfer automation target
+    if heavy_copy_paste:
+        return "automate"
+    # Eliminate: bottleneck with short steps = rework/waste
     if is_bottleneck and not is_long:
-        return "eliminate"  # bottleneck with short steps = rework/waste
+        return "eliminate"
+    # Parallelize: bottleneck with long duration = run concurrently
     if is_bottleneck and is_long:
-        return "automate"  # bottleneck with long steps = automate the wait
-    if is_long and not is_frequent:
-        return "simplify"   # rare but slow = simplify the steps
+        return "parallelize"
+    # Reassign: many people doing same frequent task = delegate to system
     if many_performers and is_frequent:
-        return "reassign"   # many people doing same thing = reassign to system
-    if is_frequent and not is_long:
-        return "automate"   # frequent short tasks = script/macro
+        return "reassign"
+    # Simplify: long tasks with moderate copy-paste = complex manual work
+    if is_long and moderate_copy_paste:
+        return "simplify"
+    # Automate: moderate copy-paste with multiple apps = data transfer
+    if moderate_copy_paste and multi_app:
+        return "automate"
+    # Eliminate: very frequent short tasks
+    if is_very_frequent and not is_long:
+        return "eliminate"
+    # Simplify: long duration tasks
+    if is_long:
+        return "simplify"
+    # Automate: remaining moderate copy-paste
+    if moderate_copy_paste:
+        return "automate"
+    # Reassign: many performers
+    if many_performers:
+        return "reassign"
     return "simplify"
 
 
@@ -255,16 +279,15 @@ def _assign_impacts_by_rank(n: int) -> list[str]:
     return ["high"] * high_count + ["medium"] * medium_count + ["low"] * low_count
 
 
-def _score_to_priority(score: float) -> int:
-    if score >= 75:
-        return 1
-    if score >= 55:
-        return 2
-    if score >= 35:
-        return 3
-    if score >= 15:
-        return 4
-    return 5
+def _assign_priorities_by_rank(n: int) -> list[int]:
+    """Assign priorities 1-5 by rank position so there's always a spread."""
+    if n == 0:
+        return []
+    priorities = []
+    for i in range(n):
+        bucket = int(i / n * 5) + 1
+        priorities.append(min(bucket, 5))
+    return priorities
 
 
 def _estimate_time_saved(activity: Activity, automation_type: str) -> float:
