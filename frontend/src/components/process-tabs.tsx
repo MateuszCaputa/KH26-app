@@ -388,7 +388,7 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                 </div>
               )}
 
-              {copilot.recommendations.length > 0 && (
+              {copilot.recommendations?.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="text-sm font-medium text-zinc-200">
                     Recommendations ({copilot.recommendations.length})

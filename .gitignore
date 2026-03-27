@@ -43,3 +43,6 @@ Dataset/
 # Outputs
 outputs/
 *.bpmn
+
+# API runtime storage (uploaded files)
+backend/api/storage/

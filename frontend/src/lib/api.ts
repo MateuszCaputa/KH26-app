@@ -63,9 +63,11 @@ export async function runPipeline(processId: string): Promise<{ status: string }
 }
 
 export async function runAnalysis(processId: string): Promise<CopilotOutput> {
-  return request<CopilotOutput>(`/api/process/${processId}/analyze`, {
-    method: 'POST',
-  });
+  const res = await request<{ result: CopilotOutput } | CopilotOutput>(
+    `/api/process/${processId}/analyze`,
+    { method: 'POST' }
+  );
+  return 'result' in res ? res.result : res;
 }
 
 export async function getPipelineOutput(processId: string): Promise<PipelineOutput> {

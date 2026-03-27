@@ -28,10 +28,11 @@ def generate_recommendations(pipeline_output: PipelineOutput) -> list[Recommenda
     scored.sort(key=lambda x: x[0], reverse=True)
     top = scored[:MAX_RECOMMENDATIONS]
 
+    impacts = _assign_impacts_by_rank(len(top))
+
     recommendations = []
-    for rank, (score, activity, automation_type) in enumerate(top, start=1):
+    for rank, ((score, activity, automation_type), impact) in enumerate(zip(top, impacts), start=1):
         reasoning = _generate_reasoning(activity, automation_type, bottleneck_severity_map, score)
-        impact = _determine_impact(score)
         priority = _score_to_priority(score)
         time_saved = _estimate_time_saved(activity, automation_type)
 
@@ -189,12 +190,17 @@ def _generate_reasoning(
     return " ".join(reasons)
 
 
-def _determine_impact(score: float) -> str:
-    if score >= 60:
-        return "high"
-    if score >= 30:
-        return "medium"
-    return "low"
+def _assign_impacts_by_rank(n: int) -> list[str]:
+    """Assign impact levels by rank position: top third=high, middle=medium, bottom=low."""
+    if n == 0:
+        return []
+    high_count = max(1, round(n * 0.3))
+    low_count = max(1, round(n * 0.3))
+    medium_count = n - high_count - low_count
+    if medium_count < 0:
+        medium_count = 0
+        low_count = n - high_count
+    return ["high"] * high_count + ["medium"] * medium_count + ["low"] * low_count
 
 
 def _score_to_priority(score: float) -> int:
@@ -223,10 +229,13 @@ def _estimate_time_saved(activity: Activity, automation_type: str) -> float:
 
 
 def _estimate_affected_cases(activity: Activity, pipeline_output: PipelineOutput) -> float:
-    """Estimate what % of cases include this activity."""
+    """Estimate what % of cases include this activity using variant data."""
     total_cases = pipeline_output.statistics.total_cases
     if total_cases == 0:
         return 0.0
-    # Frequency / total_cases gives approximate case coverage
-    # (frequency = number of times this activity appears = roughly # cases that hit it)
-    return round(min(100.0, (activity.frequency / total_cases) * 100), 1)
+    # Sum case_count from all variants that contain this activity in their sequence
+    affected = sum(
+        v.case_count for v in pipeline_output.variants
+        if activity.name in v.sequence
+    )
+    return round(min(100.0, (affected / total_cases) * 100), 1)
