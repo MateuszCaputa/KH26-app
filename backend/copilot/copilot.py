@@ -23,7 +23,7 @@ def run_copilot(
     """Run full copilot analysis on a pipeline output. Returns CopilotOutput."""
     summary = generate_summary(pipeline_output)
     recommendations = generate_recommendations(pipeline_output)
-    bpmn_xml = generate_bpmn(pipeline_output)
+    bpmn_xml = generate_bpmn(pipeline_output, recommendations)
 
     reference_comparison = None
     bpmn_path = reference_bpmn_path or DEFAULT_REFERENCE_BPMN

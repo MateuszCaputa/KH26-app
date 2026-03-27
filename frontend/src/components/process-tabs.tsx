@@ -489,6 +489,8 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
       {activeTab === 'bpmn' && (
         <BpmnTabContent
           processId={processId}
+          pipeline={pipeline}
+          recommendations={copilot?.recommendations ?? null}
           bpmnXml={bpmnXml}
           bpmnError={bpmnError}
           onLoadBpmn={handleLoadBpmn}
@@ -580,12 +582,16 @@ function VariantCard({ variant: v }: { variant: ProcessTabsProps['pipeline']['va
 
 /** BPMN tab — shows the AI-generated optimized workflow */
 function BpmnTabContent({
+  pipeline,
+  recommendations,
   bpmnXml,
   bpmnError,
   onLoadBpmn,
   onDownloadBpmn,
 }: {
   processId: string;
+  pipeline: PipelineOutput;
+  recommendations: import('@/lib/types').Recommendation[] | null;
   bpmnXml: string | null;
   bpmnError: string | null;
   onLoadBpmn: () => void;
@@ -593,37 +599,31 @@ function BpmnTabContent({
 }) {
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-zinc-200">
-          Generated Process Workflow
-        </h3>
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-sm font-semibold text-zinc-100">
+            AI-Generated BPMN 2.0 Workflow
+          </h3>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            Color-coded by insight — green: automation target · red: bottleneck · blue: copy-paste intensive
+          </p>
+        </div>
         {bpmnXml && !bpmnXml.startsWith('<!--') && (
           <button
             onClick={onDownloadBpmn}
-            className="inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-lg border border-zinc-700 transition-colors"
+            className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-lg border border-zinc-700 transition-colors"
           >
-            Download BPMN XML
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M6 1v7M3 6l3 3 3-3M1 10h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Download BPMN
           </button>
         )}
       </div>
 
-      {bpmnError ? (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-8 text-center space-y-3">
-          <p className="text-sm text-zinc-400">{bpmnError}</p>
-          <button
-            onClick={onLoadBpmn}
-            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded-lg transition-colors"
-          >
-            Retry
-          </button>
-        </div>
-      ) : !bpmnXml ? (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-8 text-center">
-          <p className="text-zinc-500 text-sm">Loading BPMN diagram...</p>
-        </div>
-      ) : (
-        <BpmnViewer xml={bpmnXml} />
-      )}
+      {/* Diagram renders immediately from pipeline data — no XML loading needed */}
+      <BpmnViewer pipeline={pipeline} recommendations={recommendations} />
     </div>
   );
 }
