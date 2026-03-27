@@ -138,10 +138,15 @@ async def get_copilot_output(process_id: str):
 
 
 @app.post("/api/run-local")
-async def run_local_dataset():
+async def run_local_dataset(max_files: int = 3):
     """Run full pipeline + copilot on the local Dataset/ folder. No upload needed.
 
     Use this endpoint in Swagger to test immediately without uploading any files.
+
+    Args:
+        max_files: Number of smallest CSV files to load (default 3 for speed).
+                   Set to 0 to load all files (slow — 1.6 GB total).
+
     Returns process_id you can use with the other endpoints.
     """
     if not LOCAL_DATASET_DIR.exists():
@@ -151,6 +156,7 @@ async def run_local_dataset():
             "Make sure the Dataset/ folder is in the project root.",
         )
 
+    limit = max_files if max_files > 0 else None
     process_id = str(uuid.uuid4())[:8]
     store.set_status(process_id, "processing", process_dir=str(LOCAL_DATASET_DIR))
 
@@ -158,7 +164,7 @@ async def run_local_dataset():
         from backend.pipeline.pipeline import run_pipeline as execute_pipeline
         from backend.copilot.copilot import run_copilot
 
-        pipeline_output = execute_pipeline(str(LOCAL_DATASET_DIR), process_id=process_id)
+        pipeline_output = execute_pipeline(str(LOCAL_DATASET_DIR), process_id=process_id, max_files=limit)
         store.set_pipeline_output(process_id, pipeline_output.model_dump())
 
         copilot_output = run_copilot(pipeline_output)
