@@ -5,6 +5,7 @@ import { StatCard } from './stat-card';
 import { SeverityBadge } from './severity-badge';
 import { RecommendationCard } from './recommendation-card';
 import { BpmnViewer } from './bpmn-viewer';
+import { ProcessFlowDiagram } from './process-flow-diagram';
 import type { PipelineOutput, CopilotOutput } from '@/lib/types';
 import { formatDuration, formatDate } from '@/lib/utils';
 import { runAnalysis, getBpmnXml } from '@/lib/api';
@@ -139,6 +140,11 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
               sub="unique users and applications"
             />
           </div>
+
+          {/* Process flow diagram */}
+          {pipeline.process_map && pipeline.process_map.nodes.length > 0 && (
+            <ProcessFlowDiagram processMap={pipeline.process_map} />
+          )}
 
           {/* Top activities table */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
