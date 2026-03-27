@@ -44,12 +44,26 @@ def _extract_main_sequence(pipeline_output: PipelineOutput) -> list[str]:
             if len(sequence) >= 3:
                 return sequence[:15]
 
-    # Fall back to top activities by frequency
+    # Fall back to top activities by frequency, filtering garbage names
     if pipeline_output.activities:
         sorted_acts = sorted(pipeline_output.activities, key=lambda a: a.frequency, reverse=True)
-        return [a.name for a in sorted_acts[:12]]
+        clean = [a.name for a in sorted_acts if _is_clean_name(a.name)]
+        return clean[:12] if len(clean) >= 3 else [a.name for a in sorted_acts[:12]]
 
     return ["Start Process", "Process Step", "Complete"]
+
+
+def _is_clean_name(name: str) -> bool:
+    """Filter out garbage activity names (URLs, long hashes, system processes)."""
+    if len(name) > 50:
+        return False
+    if "://" in name or "http" in name.lower():
+        return False
+    if "?" in name and "=" in name:  # query strings
+        return False
+    if name.count("/") > 2:
+        return False
+    return True
 
 
 def _sanitize_id(name: str, prefix: str = "task") -> str:
