@@ -1,0 +1,203 @@
+[ 1089938ms] [ERROR] ./src/app/process/[id]/page.tsx:160:1
+Merge conflict marker encountered.
+  158 |     ...(pipelineOutput?.activities?.map((s: AnyData) => s.frequency) || [1])
+  159 |   );
+> 160 | =======
+      | ^^^^^^^
+  161 | export default async function ProcessPage({ params }: PageProps) {
+  162 |   const { id } = await params;
+  163 |   const pipeline = await fetchPipeline(id);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/process/[id]/page.tsx [Client Component Browser]
+    ./src/app/process/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/process/[id]/page.tsx [Client Component SSR]
+    ./src/app/process/[id]/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3272
+[ 1089957ms] [ERROR] ./src/app/process/[id]/page.tsx:160:1
+Merge conflict marker encountered.
+  158 |     ...(pipelineOutput?.activities?.map((s: AnyData) => s.frequency) || [1])
+  159 |   );
+> 160 | =======
+      | ^^^^^^^
+  161 | export default async function ProcessPage({ params }: PageProps) {
+  162 |   const { id } = await params;
+  163 |   const pipeline = await fetchPipeline(id);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/process/[id]/page.tsx [Client Component Browser]
+    ./src/app/process/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/process/[id]/page.tsx [Client Component SSR]
+    ./src/app/process/[id]/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3272
+[ 1089957ms] [ERROR] ./src/app/process/[id]/page.tsx:160:1
+Merge conflict marker encountered.
+  158 |     ...(pipelineOutput?.activities?.map((s: AnyData) => s.frequency) || [1])
+  159 |   );
+> 160 | =======
+      | ^^^^^^^
+  161 | export default async function ProcessPage({ params }: PageProps) {
+  162 |   const { id } = await params;
+  163 |   const pipeline = await fetchPipeline(id);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/process/[id]/page.tsx [Client Component Browser]
+    ./src/app/process/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/process/[id]/page.tsx [Client Component SSR]
+    ./src/app/process/[id]/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3272
+[ 1090155ms] [ERROR] ./src/app/process/[id]/page.tsx:160:1
+Merge conflict marker encountered.
+  158 |     ...(pipelineOutput?.activities?.map((s: AnyData) => s.frequency) || [1])
+  159 |   );
+> 160 | =======
+      | ^^^^^^^
+  161 | export default async function ProcessPage({ params }: PageProps) {
+  162 |   const { id } = await params;
+  163 |   const pipeline = await fetchPipeline(id);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/process/[id]/page.tsx [Client Component Browser]
+    ./src/app/process/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/process/[id]/page.tsx [Client Component SSR]
+    ./src/app/process/[id]/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3272
+[ 1090156ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/process/e0cfd1b0?_rsc=1yw21:0
+[ 1090174ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/process/e0cfd1b0?_rsc=1yw21:0
+[ 1090197ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/process/e0cfd1b0?_rsc=1yw21:0
+[ 1090217ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/process/e0cfd1b0?_rsc=1yw21:0
+[ 1090240ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/process/e0cfd1b0:0
+[ 1090342ms] Error: ./src/app/process/[id]/page.tsx:160:1
+Merge conflict marker encountered.
+  158 |     ...(pipelineOutput?.activities?.map((s: AnyData) => s.frequency) || [1])
+  159 |   );
+> 160 | =======
+      | ^^^^^^^
+  161 | export default async function ProcessPage({ params }: PageProps) {
+  162 |   const { id } = await params;
+  163 |   const pipeline = await fetchPipeline(id);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/process/[id]/page.tsx [Client Component Browser]
+    ./src/app/process/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/process/[id]/page.tsx [Client Component SSR]
+    ./src/app/process/[id]/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/app/process/[id]/page.tsx:160:1)
+    at Object.getCompilationErrors (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/server/dev/hot-reloader-turbopack.js:1189:59)
+    at DevBundlerService.getCompilationError (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/server/lib/dev-bundler-service.js:44:55)
+    at DevServer.getCompilationError (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/server/dev/next-dev-server.js:719:42)
+    at DevServer.findPageComponents (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/server/dev/next-dev-server.js:689:43)
+    at async DevServer.renderErrorToResponseImpl (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/server/base-server.js:1745:26)
+[ 1090344ms] [ERROR] ./src/app/process/[id]/page.tsx:160:1
+Merge conflict marker encountered.
+  158 |     ...(pipelineOutput?.activities?.map((s: AnyData) => s.frequency) || [1])
+  159 |   );
+> 160 | =======
+      | ^^^^^^^
+  161 | export default async function ProcessPage({ params }: PageProps) {
+  162 |   const { id } = await params;
+  163 |   const pipeline = await fetchPipeline(id);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/process/[id]/page.tsx [Client Component Browser]
+    ./src/app/process/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/process/[id]/page.tsx [Client Component SSR]
+    ./src/app/process/[id]/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[ 1090391ms] [ERROR] ./src/app/process/[id]/page.tsx:160:1
+Merge conflict marker encountered.
+  158 |     ...(pipelineOutput?.activities?.map((s: AnyData) => s.frequency) || [1])
+  159 |   );
+> 160 | =======
+      | ^^^^^^^
+  161 | export default async function ProcessPage({ params }: PageProps) {
+  162 |   const { id } = await params;
+  163 |   const pipeline = await fetchPipeline(id);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/process/[id]/page.tsx [Client Component Browser]
+    ./src/app/process/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/process/[id]/page.tsx [Client Component SSR]
+    ./src/app/process/[id]/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[ 1093381ms] [ERROR] ./src/app/process/[id]/page.tsx:160:1
+Merge conflict marker encountered.
+  158 |     ...(pipelineOutput?.activities?.map((s: AnyData) => s.frequency) || [1])
+  159 |   );
+> 160 | =======
+      | ^^^^^^^
+  161 | export default async function ProcessPage({ params }: PageProps) {
+  162 |   const { id } = await params;
+  163 |   const pipeline = await fetchPipeline(id);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/process/[id]/page.tsx [Client Component Browser]
+    ./src/app/process/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/process/[id]/page.tsx [Client Component SSR]
+    ./src/app/process/[id]/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[ 1122191ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/process/e0cfd1b0:0
+[ 1122212ms] Error: The default export is not a React Component in "/process/[id]/page"
+    at errorMissingDefaultExport (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/compiled/next-server/app-page-turbo.runtime.dev.js:65:20093)
+    at createComponentTreeInternal (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/compiled/next-server/app-page-turbo.runtime.dev.js:65:28794)
+    at async (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/compiled/next-server/app-page-turbo.runtime.dev.js:65:31024)
+    at async createComponentTreeInternal (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/compiled/next-server/app-page-turbo.runtime.dev.js:65:30241)
+    at async (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/compiled/next-server/app-page-turbo.runtime.dev.js:65:31024)
+    at async createComponentTreeInternal (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/compiled/next-server/app-page-turbo.runtime.dev.js:65:30241)
+    at async (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/compiled/next-server/app-page-turbo.runtime.dev.js:65:31024)
+    at async createComponentTreeInternal (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/compiled/next-server/app-page-turbo.runtime.dev.js:65:30241)
+    at async getRSCPayload (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/compiled/next-server/app-page-turbo.runtime.dev.js:69:42190)
+    at async (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/compiled/next-server/app-page-turbo.runtime.dev.js:69:73965)
+    at async renderToHTMLOrFlightImpl (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/compiled/next-server/app-page-turbo.runtime.dev.js:69:56895)
+    at async doRender (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/.next/dev/server/chunks/ssr/node_modules_0d~3c_p._.js:5159:28)
+    at async AppPageRouteModule.handleResponse (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/compiled/next-server/app-page-turbo.runtime.dev.js:71:63567)
+    at async handleResponse (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/.next/dev/server/chunks/ssr/node_modules_0d~3c_p._.js:5434:32)
+    at async Module.handler (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/.next/dev/server/chunks/ssr/node_modules_0d~3c_p._.js:5837:20)
+    at async DevServer.renderToResponseWithComponentsImpl (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/server/base-server.js:1454:9)
+    at async DevServer.renderPageComponent (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/server/base-server.js:1506:24)
+    at async DevServer.renderToResponseImpl (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/server/base-server.js:1556:32)
+    at async DevServer.pipeImpl (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/server/base-server.js:1043:25)
+    at async NextNodeServer.handleCatchallRenderRequest (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/server/next-server.js:338:17)
+    at async DevServer.handleRequestImpl (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/server/base-server.js:934:17)
+    at async (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/server/dev/next-dev-server.js:394:20)
+    at async Span.traceAsyncFn (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/trace/trace.js:164:20)
+    at async DevServer.handleRequest (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/server/dev/next-dev-server.js:390:24)
+    at async invokeRender (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/server/lib/router-server.js:253:21)
+    at async handleRequest (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/server/lib/router-server.js:452:24)
+    at async requestHandlerImpl (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/server/lib/router-server.js:501:13)
+    at async Server.requestListener (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/server/lib/start-server.js:225:13)

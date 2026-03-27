@@ -5,7 +5,7 @@ import uuid
 import pandas as pd
 
 from backend.models import PipelineOutput, ProcessStatistics, ApplicationUsage
-from backend.pipeline.ingest import ingest
+from backend.pipeline.ingest import ingest, load_activity_sequence_csvs, prepare_dataframe
 from backend.pipeline.discovery import discover_activities, discover_process_map
 from backend.pipeline.variants import discover_variants
 from backend.pipeline.bottlenecks import detect_bottlenecks
@@ -20,12 +20,26 @@ ACTIVE_STATUS = "Active"
 STATUS_COL = "Activity Status"
 
 
-def run_pipeline(dataset_directory: str, process_id: str | None = None) -> PipelineOutput:
-    """Run the full pipeline on Activity Sequence CSV files in the given directory."""
+def run_pipeline(
+    dataset_directory: str,
+    process_id: str | None = None,
+    max_files: int | None = None,
+) -> PipelineOutput:
+    """Run the full pipeline on Activity Sequence CSV files in the given directory.
+
+    Args:
+        dataset_directory: Path to folder with Activity Sequence Export CSVs.
+        process_id: Optional ID; generated if not provided.
+        max_files: Load only the N smallest CSVs. None = load all (slow for 1.6 GB datasets).
+    """
     if process_id is None:
         process_id = str(uuid.uuid4())
 
-    df = ingest(dataset_directory)
+    if max_files is not None:
+        raw = load_activity_sequence_csvs(dataset_directory, max_files=max_files)
+        df = prepare_dataframe(raw)
+    else:
+        df = ingest(dataset_directory)
     activities = discover_activities(df)
     variants = discover_variants(df)
     bottlenecks = detect_bottlenecks(df)

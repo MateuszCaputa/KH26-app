@@ -22,12 +22,21 @@ TEXT_COL = "Text entries No."
 REQUIRED_COLUMNS = {ACTIVITY_COL, CASE_COL, TIMESTAMP_COL, USER_COL, DURATION_COL}
 
 
-def load_activity_sequence_csvs(directory: str) -> pd.DataFrame:
-    """Load and merge all Activity Sequence Export CSV files from a directory."""
+def load_activity_sequence_csvs(directory: str, max_files: int | None = None) -> pd.DataFrame:
+    """Load and merge Activity Sequence Export CSV files from a directory.
+
+    Args:
+        directory: Path to folder containing Activity Sequence Export CSV files.
+        max_files: If set, load only the N smallest files. Useful for demos and tests
+                   to avoid loading the full 1.6 GB dataset.
+    """
     pattern = os.path.join(directory, "Activity Sequence Export*.csv")
-    paths = glob.glob(pattern)
+    paths = sorted(glob.glob(pattern), key=os.path.getsize)
     if not paths:
         raise FileNotFoundError(f"No Activity Sequence Export CSVs found in: {directory}")
+
+    if max_files is not None:
+        paths = paths[:max_files]
 
     frames = []
     for path in paths:
@@ -38,6 +47,12 @@ def load_activity_sequence_csvs(directory: str) -> pd.DataFrame:
         frames.append(df)
 
     return pd.concat(frames, ignore_index=True)
+
+
+def ingest_sample(directory: str, max_files: int = 3) -> pd.DataFrame:
+    """Load a fast sample from the dataset (smallest N files). Use for demos and tests."""
+    raw = load_activity_sequence_csvs(directory, max_files=max_files)
+    return prepare_dataframe(raw)
 
 
 def _resolve_case_ids(df: pd.DataFrame) -> pd.Series:
