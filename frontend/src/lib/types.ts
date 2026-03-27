@@ -1,0 +1,133 @@
+/**
+ * TypeScript interfaces matching backend API contracts.
+ */
+
+export interface UploadResponse {
+  process_id: string;
+  status: string;
+  filename: string;
+}
+
+export interface RunLocalResponse {
+  process_id: string;
+  status: string;
+  summary: string;
+  recommendations_count: number;
+  top_recommendations: string[];
+  hint: string;
+}
+
+export interface PipelineStatistics {
+  total_cases: number;
+  total_events: number;
+  total_activities: number;
+  total_variants: number;
+  total_users: number;
+  total_applications: number;
+  avg_case_duration_seconds: number;
+  median_case_duration_seconds: number;
+  start_date: string;
+  end_date: string;
+}
+
+export interface Activity {
+  name: string;
+  frequency: number;
+  avg_duration_seconds: number;
+  min_duration_seconds: number;
+  max_duration_seconds: number;
+  applications: string[];
+  performers: string[];
+  copy_paste_count: number;
+  manual_interaction_count: number;
+}
+
+export interface Variant {
+  variant_id: number;
+  sequence: string[];
+  case_count: number;
+  percentage: number;
+  avg_total_duration_seconds: number;
+}
+
+export type BottleneckSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+export interface Bottleneck {
+  from_activity: string;
+  to_activity: string;
+  avg_wait_seconds: number;
+  max_wait_seconds: number;
+  case_count: number;
+  severity: BottleneckSeverity;
+}
+
+export interface ProcessMapNode {
+  id: string;
+  label: string;
+  frequency: number;
+}
+
+export interface ProcessMapEdge {
+  source: string;
+  target: string;
+  weight: number;
+  avg_duration_seconds: number;
+}
+
+export interface ProcessMap {
+  nodes: ProcessMapNode[];
+  edges: ProcessMapEdge[];
+}
+
+export interface ApplicationUsage {
+  application: string;
+  total_duration_seconds: number;
+  active_duration_seconds: number;
+  passive_duration_seconds: number;
+}
+
+export interface PipelineOutput {
+  process_id: string;
+  statistics: PipelineStatistics;
+  activities: Activity[];
+  variants: Variant[];
+  bottlenecks: Bottleneck[];
+  process_map: ProcessMap;
+  application_usage: ApplicationUsage[];
+}
+
+export type RecommendationType =
+  | 'automate'
+  | 'eliminate'
+  | 'simplify'
+  | 'parallelize'
+  | 'reassign';
+
+export type ImpactLevel = 'low' | 'medium' | 'high';
+
+export interface Recommendation {
+  id: number;
+  type: RecommendationType;
+  target: string;
+  reasoning: string;
+  impact: ImpactLevel;
+  priority: number;
+  estimated_time_saved_seconds: number;
+  affected_cases_percentage: number;
+  automation_type: string;
+}
+
+export interface CopilotOutput {
+  process_id: string;
+  summary: string;
+  recommendations: Recommendation[];
+  bpmn_xml: string;
+  reference_bpmn_comparison: string | null;
+  decision_rules: unknown[];
+  process_variables: unknown[];
+}
+
+export interface ApiError {
+  error: string;
+  detail?: string;
+}
