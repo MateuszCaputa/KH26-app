@@ -6,8 +6,8 @@ import { SeverityBadge } from './severity-badge';
 import { RecommendationCard } from './recommendation-card';
 import { BpmnViewer } from './bpmn-viewer';
 import type { PipelineOutput, CopilotOutput } from '@/lib/types';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+import { formatDuration, formatDate } from '@/lib/utils';
+import { runAnalysis, getBpmnXml } from '@/lib/api';
 
 type TabId = 'overview' | 'bottlenecks' | 'variants' | 'ai' | 'bpmn';
 
@@ -18,28 +18,6 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'ai', label: 'AI Analysis' },
   { id: 'bpmn', label: 'BPMN' },
 ];
-
-function formatDuration(seconds: number): string {
-  if (!seconds || seconds < 0) return '—';
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
-  const h = Math.floor(seconds / 3600);
-  const m = Math.round((seconds % 3600) / 60);
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
-}
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return '—';
-  try {
-    return new Date(dateStr).toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return dateStr;
-  }
-}
 
 interface ProcessTabsProps {
   pipeline: PipelineOutput;
@@ -55,11 +33,19 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
   );
   const [isPending, startTransition] = useTransition();
 
+  const [showAllBottlenecks, setShowAllBottlenecks] = useState(false);
+  const [showAllActivities, setShowAllActivities] = useState(false);
+
   const { statistics: stats, activities, bottlenecks, variants, application_usage } = pipeline;
 
-  const topActivities = [...activities]
-    .sort((a, b) => b.frequency - a.frequency)
-    .slice(0, 10);
+  const sortedActivities = [...activities].sort((a, b) => b.frequency - a.frequency);
+  const topActivities = showAllActivities ? sortedActivities : sortedActivities.slice(0, 15);
+
+  const sortedBottlenecks = [...bottlenecks].sort((a, b) => {
+    const sev = { critical: 4, high: 3, medium: 2, low: 1 };
+    return (sev[b.severity as keyof typeof sev] ?? 0) - (sev[a.severity as keyof typeof sev] ?? 0);
+  });
+  const visibleBottlenecks = showAllBottlenecks ? sortedBottlenecks : sortedBottlenecks.slice(0, 15);
 
   const maxUsage = Math.max(
     ...(application_usage?.map((a) => a.total_duration_seconds) ?? [1])
@@ -69,14 +55,7 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
     setCopilotError(null);
     startTransition(async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/process/${processId}/analyze`, {
-          method: 'POST',
-        });
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({})) as { detail?: string };
-          throw new Error(body.detail ?? `HTTP ${res.status}`);
-        }
-        const data = await res.json() as CopilotOutput;
+        const data = await runAnalysis(processId);
         setCopilot(data);
       } catch (err) {
         setCopilotError(err instanceof Error ? err.message : 'Analysis failed');
@@ -86,12 +65,10 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
 
   async function handleLoadBpmn() {
     try {
-      const res = await fetch(`${API_BASE}/api/process/${processId}/bpmn`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const xml = await res.text();
+      const xml = await getBpmnXml(processId);
       setBpmnXml(xml);
     } catch (err) {
-      setBpmnXml(`<!-- Error loading BPMN: ${err instanceof Error ? err.message : 'unknown'} -->`);
+      setBpmnXml(`<!-- Error: ${err instanceof Error ? err.message : 'unknown'} -->`);
     }
   }
 
@@ -212,6 +189,14 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                 </tbody>
               </table>
             </div>
+            {activities.length > 15 && (
+              <button
+                onClick={() => setShowAllActivities(!showAllActivities)}
+                className="w-full py-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors border-t border-zinc-800"
+              >
+                {showAllActivities ? 'Show less' : `Show all ${activities.length} activities`}
+              </button>
+            )}
           </div>
 
           {/* Application usage bar chart */}
@@ -276,7 +261,7 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {bottlenecks.map((bn, i) => (
+                  {visibleBottlenecks.map((bn, i) => (
                     <tr key={i} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
                       <td className="px-4 py-3 text-zinc-200">
                         <span className="text-zinc-400">{bn.from_activity}</span>
@@ -300,6 +285,14 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                 </tbody>
               </table>
             </div>
+          )}
+          {bottlenecks.length > 15 && (
+            <button
+              onClick={() => setShowAllBottlenecks(!showAllBottlenecks)}
+              className="w-full py-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              {showAllBottlenecks ? 'Show less' : `Show all ${bottlenecks.length} bottlenecks`}
+            </button>
           )}
         </div>
       )}

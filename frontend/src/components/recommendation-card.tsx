@@ -1,4 +1,5 @@
 import type { Recommendation, RecommendationType, ImpactLevel } from '@/lib/types';
+import { formatDuration } from '@/lib/utils';
 
 const TYPE_STYLES: Record<RecommendationType, string> = {
   automate: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
@@ -13,14 +14,6 @@ const IMPACT_STYLES: Record<ImpactLevel, string> = {
   medium: 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30',
   low: 'bg-zinc-700/40 text-zinc-400 border border-zinc-700',
 };
-
-function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
-  const h = Math.floor(seconds / 3600);
-  const m = Math.round((seconds % 3600) / 60);
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
-}
 
 interface RecommendationCardProps {
   recommendation: Recommendation;
