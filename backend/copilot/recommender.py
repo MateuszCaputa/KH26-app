@@ -29,10 +29,13 @@ def generate_recommendations(pipeline_output: PipelineOutput) -> list[Recommenda
     top = scored[:MAX_RECOMMENDATIONS]
 
     impacts = _assign_impacts_by_rank(len(top))
+    ai_reasonings = _generate_reasonings_with_llm(top, bottleneck_severity_map)
 
     recommendations = []
     for rank, ((score, activity, automation_type), impact) in enumerate(zip(top, impacts), start=1):
-        reasoning = _generate_reasoning(activity, automation_type, bottleneck_severity_map, score)
+        reasoning = ai_reasonings.get(rank) or _generate_reasoning(
+            activity, automation_type, bottleneck_severity_map, score
+        )
         priority = _score_to_priority(score)
         time_saved = _estimate_time_saved(activity, automation_type)
 
@@ -49,6 +52,55 @@ def generate_recommendations(pipeline_output: PipelineOutput) -> list[Recommenda
         ))
 
     return recommendations
+
+
+def _generate_reasonings_with_llm(
+    top: list[tuple],
+    bottleneck_map: dict[str, float],
+) -> dict[int, str]:
+    """Call LLM once to generate reasoning for all top recommendations.
+
+    Returns a dict mapping rank (1-based) -> reasoning string.
+    Returns empty dict if LLM is unavailable or call fails.
+    """
+    import json as _json
+
+    activities_desc = []
+    for rank, (score, activity, automation_type) in enumerate(top, start=1):
+        is_bottleneck = bottleneck_map.get(activity.name, 0.0) > 0.5
+        activities_desc.append(
+            f"{rank}. Activity: \"{activity.name}\"\n"
+            f"   Type: {automation_type}\n"
+            f"   Frequency: {activity.frequency} occurrences\n"
+            f"   Avg duration: {activity.avg_duration_seconds:.0f}s\n"
+            f"   Copy-paste count: {activity.copy_paste_count}\n"
+            f"   Is bottleneck: {is_bottleneck}\n"
+            f"   Automation score: {score:.0f}/100"
+        )
+
+    prompt = f"""You are a process automation consultant analyzing Task Mining data from KYP.ai.
+Below are the top automation candidates discovered in a business process.
+For each activity write ONE concise sentence (max 40 words) explaining WHY it should be automated
+and WHAT specific benefit automation would bring. Be specific, vary the reasoning — do not repeat the same template.
+
+Activities:
+{chr(10).join(activities_desc)}
+
+Respond with a JSON object mapping the rank number (as string) to the reasoning sentence.
+Example format: {{"1": "reasoning...", "2": "reasoning...", ...}}
+Return only valid JSON, no markdown, no extra text."""
+
+    response = call_llm(prompt, max_tokens=1024)
+    if not response:
+        return {}
+
+    try:
+        # Strip markdown code fences if present
+        cleaned = response.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+        data = _json.loads(cleaned)
+        return {int(k): v for k, v in data.items() if v}
+    except Exception:
+        return {}
 
 
 def _build_bottleneck_map(bottlenecks: list[Bottleneck]) -> dict[str, float]:
