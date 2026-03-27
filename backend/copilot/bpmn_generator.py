@@ -66,6 +66,7 @@ def _build_bpmn_xml(sequence: list[str], process_id: str) -> str:
     definitions.set(f"xmlns:bpmndi", BPMNDI_NS)
     definitions.set(f"xmlns:dc", DC_NS)
     definitions.set(f"xmlns:di", DI_NS)
+    definitions.set("xmlns:bioc", "http://bpmn.io/schema/bpmn/biocolor/1.0")
 
     process_elem = ET.SubElement(definitions, f"{{{BPMN_NS}}}process")
     process_elem.set("id", f"process_{process_id}")

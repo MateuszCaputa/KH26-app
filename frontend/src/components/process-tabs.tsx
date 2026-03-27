@@ -63,12 +63,16 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
     });
   }
 
+  const [bpmnError, setBpmnError] = useState<string | null>(null);
+
   async function handleLoadBpmn() {
+    setBpmnError(null);
     try {
       const xml = await getBpmnXml(processId);
       setBpmnXml(xml);
     } catch (err) {
-      setBpmnXml(`<!-- Error: ${err instanceof Error ? err.message : 'unknown'} -->`);
+      const msg = err instanceof Error ? err.message : 'unknown';
+      setBpmnError(msg.includes('202') ? 'Run AI Analysis first to generate BPMN.' : `Failed to load BPMN: ${msg}`);
     }
   }
 
@@ -413,7 +417,17 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
       {/* Tab: BPMN */}
       {activeTab === 'bpmn' && (
         <div className="space-y-4">
-          {!bpmnXml ? (
+          {bpmnError ? (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-8 text-center space-y-3">
+              <p className="text-sm text-zinc-400">{bpmnError}</p>
+              <button
+                onClick={handleLoadBpmn}
+                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded-lg transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          ) : !bpmnXml ? (
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-8 text-center">
               <p className="text-zinc-500 text-sm">Loading BPMN diagram…</p>
             </div>

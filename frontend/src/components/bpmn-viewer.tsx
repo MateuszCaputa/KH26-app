@@ -3,6 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 
+// bpmn-js requires these stylesheets for proper rendering
+import 'bpmn-js/dist/assets/diagram-js.css';
+import 'bpmn-js/dist/assets/bpmn-js.css';
+import 'bpmn-js/dist/assets/bpmn-font/css/bpmn.css';
+
 interface BpmnViewerProps {
   xml: string;
 }
@@ -13,16 +18,15 @@ function BpmnViewerInner({ xml }: BpmnViewerProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let viewer: { destroy: () => void } | null = null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let viewer: any = null;
 
     async function initViewer() {
       if (!containerRef.current) return;
 
       try {
-        // Dynamic import to avoid SSR issues with bpmn-js
         const BpmnViewerModule = await import(
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore
+          // @ts-expect-error - bpmn-js types
           'bpmn-js/dist/bpmn-viewer.development.js'
         );
         const BpmnViewerClass =
@@ -32,12 +36,14 @@ function BpmnViewerInner({ xml }: BpmnViewerProps) {
           container: containerRef.current,
         });
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (viewer as any).importXML(xml);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (viewer as any).get('canvas').zoom('fit-viewport');
+        const result = await viewer.importXML(xml);
+        if (result.warnings?.length > 0) {
+          console.warn('BPMN import warnings:', result.warnings);
+        }
+        viewer.get('canvas').zoom('fit-viewport');
         setLoading(false);
       } catch (err) {
+        console.error('BPMN render error:', err);
         setError(err instanceof Error ? err.message : 'Failed to render BPMN');
         setLoading(false);
       }
@@ -47,15 +53,16 @@ function BpmnViewerInner({ xml }: BpmnViewerProps) {
 
     return () => {
       if (viewer) {
-        viewer.destroy();
+        try { viewer.destroy(); } catch { /* ignore */ }
       }
     };
   }, [xml]);
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-full text-sm text-red-400">
-        Failed to render BPMN: {error}
+      <div className="flex flex-col items-center justify-center h-full gap-2">
+        <p className="text-sm text-red-400">Failed to render BPMN diagram</p>
+        <p className="text-xs text-zinc-500 max-w-md text-center">{error}</p>
       </div>
     );
   }
@@ -72,7 +79,6 @@ function BpmnViewerInner({ xml }: BpmnViewerProps) {
   );
 }
 
-// Wrap with dynamic to disable SSR
 const BpmnViewerDynamic = dynamic(
   () => Promise.resolve(BpmnViewerInner),
   { ssr: false }
@@ -80,7 +86,7 @@ const BpmnViewerDynamic = dynamic(
 
 export function BpmnViewer({ xml }: BpmnViewerProps) {
   return (
-    <div className="w-full h-[500px] bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden">
+    <div className="w-full h-[500px] bg-white border border-zinc-800 rounded-lg overflow-hidden">
       <BpmnViewerDynamic xml={xml} />
     </div>
   );
