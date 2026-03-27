@@ -83,3 +83,11 @@ export async function getBpmnXml(processId: string): Promise<string> {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.text();
 }
+
+export async function getReferenceBpmn(): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/reference-bpmn`, {
+    headers: { Accept: 'application/xml, text/xml, */*' },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.text();
+}

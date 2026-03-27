@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { StatCard } from './stat-card';
 import { SeverityBadge } from './severity-badge';
 import { RecommendationCard } from './recommendation-card';
 import { BpmnViewer } from './bpmn-viewer';
 import type { PipelineOutput, CopilotOutput } from '@/lib/types';
 import { formatDuration, formatDate } from '@/lib/utils';
-import { runAnalysis, getBpmnXml } from '@/lib/api';
+import { runAnalysis, getBpmnXml, getReferenceBpmn } from '@/lib/api';
 
 type TabId = 'overview' | 'bottlenecks' | 'variants' | 'ai' | 'bpmn';
 
@@ -416,48 +416,104 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
 
       {/* Tab: BPMN */}
       {activeTab === 'bpmn' && (
-        <div className="space-y-4">
-          {bpmnError ? (
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-8 text-center space-y-3">
-              <p className="text-sm text-zinc-400">{bpmnError}</p>
-              <button
-                onClick={handleLoadBpmn}
-                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded-lg transition-colors"
-              >
-                Retry
-              </button>
-            </div>
-          ) : !bpmnXml ? (
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-8 text-center">
-              <p className="text-zinc-500 text-sm">Loading BPMN diagram…</p>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-zinc-200">BPMN Diagram</h3>
-                <button
-                  onClick={handleDownloadBpmn}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-lg border border-zinc-700 transition-colors"
-                >
-                  Download BPMN XML
-                </button>
-              </div>
+        <BpmnTabContent
+          processId={processId}
+          bpmnXml={bpmnXml}
+          bpmnError={bpmnError}
+          onLoadBpmn={handleLoadBpmn}
+          onDownloadBpmn={handleDownloadBpmn}
+        />
+      )}
+    </div>
+  );
+}
 
-              {/* Visual diagram */}
-              <BpmnViewer xml={bpmnXml} />
+/** BPMN tab with toggle between reference model and generated BPMN */
+function BpmnTabContent({
+  processId,
+  bpmnXml,
+  bpmnError,
+  onLoadBpmn,
+  onDownloadBpmn,
+}: {
+  processId: string;
+  bpmnXml: string | null;
+  bpmnError: string | null;
+  onLoadBpmn: () => void;
+  onDownloadBpmn: () => void;
+}) {
+  const [bpmnView, setBpmnView] = useState<'reference' | 'generated'>('reference');
+  const [referenceXml, setReferenceXml] = useState<string | null>(null);
+  const [refError, setRefError] = useState<string | null>(null);
 
-              {/* Raw XML */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
-                <div className="px-4 py-2 border-b border-zinc-800 flex items-center justify-between">
-                  <span className="text-xs text-zinc-500 font-mono">BPMN XML</span>
-                </div>
-                <pre className="text-xs text-zinc-400 p-4 overflow-auto max-h-96 font-mono whitespace-pre-wrap break-all">
-                  {bpmnXml}
-                </pre>
-              </div>
-            </>
-          )}
+  useEffect(() => {
+    getReferenceBpmn()
+      .then(setReferenceXml)
+      .catch((err) => setRefError(err instanceof Error ? err.message : 'Failed to load'));
+  }, []);
+
+  const currentXml = bpmnView === 'reference' ? referenceXml : bpmnXml;
+  const currentError = bpmnView === 'reference' ? refError : bpmnError;
+
+  return (
+    <div className="space-y-4">
+      {/* Toggle */}
+      <div className="flex items-center gap-1 bg-zinc-900 rounded-lg p-1 border border-zinc-800 w-fit">
+        <button
+          onClick={() => setBpmnView('reference')}
+          className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            bpmnView === 'reference'
+              ? 'bg-blue-600 text-white'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          Discovered Process
+        </button>
+        <button
+          onClick={() => {
+            setBpmnView('generated');
+            if (!bpmnXml && !bpmnError) onLoadBpmn();
+          }}
+          className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            bpmnView === 'generated'
+              ? 'bg-blue-600 text-white'
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          Optimized Workflow
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-zinc-200">
+          {bpmnView === 'reference' ? 'Discovered Process Model' : 'AI-Generated Optimized Workflow'}
+        </h3>
+        {currentXml && (
+          <button
+            onClick={onDownloadBpmn}
+            className="inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-lg border border-zinc-700 transition-colors"
+          >
+            Download BPMN XML
+          </button>
+        )}
+      </div>
+
+      {currentError ? (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-8 text-center space-y-3">
+          <p className="text-sm text-zinc-400">{currentError}</p>
+          <button
+            onClick={bpmnView === 'reference' ? () => getReferenceBpmn().then(setReferenceXml).catch(() => {}) : onLoadBpmn}
+            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded-lg transition-colors"
+          >
+            Retry
+          </button>
         </div>
+      ) : !currentXml ? (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-8 text-center">
+          <p className="text-zinc-500 text-sm">Loading BPMN diagram…</p>
+        </div>
+      ) : (
+        <BpmnViewer xml={currentXml} />
       )}
     </div>
   );

@@ -203,3 +203,14 @@ async def get_bpmn(process_id: str):
         raise HTTPException(202, detail="BPMN not yet generated — run analyze first")
 
     return Response(content=copilot["bpmn_xml"], media_type="application/xml")
+
+
+REFERENCE_BPMN_PATH = LOCAL_DATASET_DIR / "model (67).bpmn"
+
+
+@app.get("/api/reference-bpmn")
+async def get_reference_bpmn():
+    """Return the reference BPMN model from the dataset for comparison."""
+    if not REFERENCE_BPMN_PATH.exists():
+        raise HTTPException(404, "Reference BPMN model not found in Dataset/")
+    return Response(content=REFERENCE_BPMN_PATH.read_text(), media_type="application/xml")
