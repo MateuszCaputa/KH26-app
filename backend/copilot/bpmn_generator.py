@@ -28,40 +28,37 @@ def generate_bpmn(pipeline_output: PipelineOutput) -> str:
 def _extract_main_sequence(pipeline_output: PipelineOutput) -> list[str]:
     """Extract meaningful activity sequence for BPMN generation.
 
-    Strategy: use the longest variant if it has enough steps,
-    otherwise fall back to top activities by frequency.
+    Strategy: use top activities by frequency with clean names.
     """
-    # Try longest variant first (most complete process path)
-    if pipeline_output.variants:
-        longest = max(pipeline_output.variants, key=lambda v: len(v.sequence))
-        if len(longest.sequence) >= 3:
-            seen: set[str] = set()
-            sequence = []
-            for step in longest.sequence:
-                if step not in seen:
-                    seen.add(step)
-                    sequence.append(step)
-            if len(sequence) >= 3:
-                return sequence[:15]
-
-    # Fall back to top activities by frequency, filtering garbage names
     if pipeline_output.activities:
         sorted_acts = sorted(pipeline_output.activities, key=lambda a: a.frequency, reverse=True)
         clean = [a.name for a in sorted_acts if _is_clean_name(a.name)]
-        return clean[:12] if len(clean) >= 3 else [a.name for a in sorted_acts[:12]]
+        if len(clean) >= 3:
+            return clean[:12]
+
+    if pipeline_output.variants:
+        longest = max(pipeline_output.variants, key=lambda v: len(v.sequence))
+        seen: set[str] = set()
+        sequence = [s for s in longest.sequence if s not in seen and not seen.add(s) and _is_clean_name(s)]
+        if len(sequence) >= 3:
+            return sequence[:12]
 
     return ["Start Process", "Process Step", "Complete"]
 
 
 def _is_clean_name(name: str) -> bool:
     """Filter out garbage activity names (URLs, long hashes, system processes)."""
-    if len(name) > 50:
+    if len(name) > 40:
+        return False
+    if "." in name and "/" in name:  # URLs like gemini.google.com/...
         return False
     if "://" in name or "http" in name.lower():
         return False
-    if "?" in name and "=" in name:  # query strings
+    if "?" in name and "=" in name:
         return False
-    if name.count("/") > 2:
+    if name.count("/") > 1:
+        return False
+    if any(c in name for c in ["&", "=", "#"]):
         return False
     return True
 

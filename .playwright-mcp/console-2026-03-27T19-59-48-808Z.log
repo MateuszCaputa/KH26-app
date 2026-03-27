@@ -201,3 +201,27 @@ Import traces:
     at async handleRequest (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/server/lib/router-server.js:452:24)
     at async requestHandlerImpl (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/server/lib/router-server.js:501:13)
     at async Server.requestListener (file:///Users/mateuszcaputa/Code/hackathon-app/frontend/node_modules/next/dist/server/lib/start-server.js:225:13)
+[ 1434622ms] [ERROR] ./src/components/recommendation-card.tsx:18:10
+the name `formatDuration` is defined multiple times
+  16 | };
+  17 |
+> 18 | function formatDuration(seconds: number): string {
+     |          ^^^^^^^^^^^^^^
+  19 |   if (seconds < 60) return `${seconds}s`;
+  20 |   if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+  21 |   const h = Math.floor(seconds / 3600);
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/components/recommendation-card.tsx [Client Component Browser]
+    ./src/components/process-tabs.tsx [Client Component Browser]
+    ./src/components/process-tabs.tsx [Server Component]
+    ./src/app/process/[id]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/recommendation-card.tsx [Client Component SSR]
+    ./src/components/process-tabs.tsx [Client Component SSR]
+    ./src/components/process-tabs.tsx [Server Component]
+    ./src/app/process/[id]/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3272
