@@ -9,10 +9,8 @@ import { CollapsibleSection } from './collapsible-section';
 import { InlineTooltip } from './tooltip';
 import { LiveMonitor } from './live-monitor';
 import { HealthScore } from './health-score';
-import { RoiCalculator } from './roi-calculator';
 import { AskProcess } from './ask-process';
 import { AutomationMatrix } from './automation-matrix';
-import { BeforeAfter } from './before-after';
 import { OverviewFilterBar, BottleneckFilterBar, VariantFilterBar } from './filter-bar';
 import { useFilters } from '@/hooks/use-filters';
 import { CostOfInaction } from './cost-of-inaction';
@@ -33,6 +31,7 @@ type TabId = 'dashboard' | 'overview' | 'impact' | 'bottlenecks' | 'variants' | 
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'dashboard', label: '⚡ Dashboard' },
+  { id: 'journey', label: 'User Journey' },
   { id: 'overview', label: 'Overview' },
   { id: 'impact', label: 'Business Impact' },
   { id: 'bottlenecks', label: 'Bottlenecks' },
@@ -40,7 +39,6 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'ai', label: 'AI Analysis' },
   { id: 'bpmn', label: 'Workflow Diagram' },
   { id: 'live', label: 'Live Monitor' },
-  { id: 'journey', label: 'User Journey' },
 ];
 
 interface CompressedSegment {
@@ -224,7 +222,7 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
       </div>
 
       {/* Tab navigation */}
-      <div className="flex gap-1 border-b border-zinc-800 overflow-x-auto" role="tablist">
+      <div className="flex gap-1 border-b border-zinc-800 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" role="tablist">
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -890,11 +888,6 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                 );
               })()}
 
-              {copilot.recommendations?.length > 0 && (
-                <RoiCalculator recommendations={copilot.recommendations} pipeline={pipeline} />
-              )}
-
-              <BeforeAfter pipeline={pipeline} copilot={copilot} />
 
               {copilot.reference_bpmn_comparison && (
                 <CollapsibleSection
