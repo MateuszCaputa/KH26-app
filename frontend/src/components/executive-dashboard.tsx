@@ -5,6 +5,7 @@ import type { PipelineOutput, CopilotOutput, Activity } from '@/lib/types';
 import { formatDuration } from '@/lib/utils';
 import { normalizeActivityName, formatBottleneckTransition } from '@/lib/format-names';
 import { BottleneckInsight } from './bottleneck-insight';
+import { InlineTooltip } from './tooltip';
 
 const HOURLY_RATE = 50; // € per hour — conservative loaded cost
 const PASSIVE_APPS = new Set(['Teams', 'Outlook', 'New Outlook', 'Slack', 'Gmail', 'Zoom', 'Meet']);
@@ -391,21 +392,21 @@ const totalPotentialSavings = wins.reduce((s, w) => s + w.eurPerMonth, 0);
       {/* ── BOTTOM: process stats strip ── */}
       <div className="grid grid-cols-5 gap-3">
         {[
-          { label: 'Users observed', value: stats.total_users, tab: 'journey' },
-          { label: 'Applications used', value: stats.total_applications, tab: 'overview' },
-          { label: 'Process variants', value: stats.total_variants, note: 'paths diverge from standard', tab: 'variants' },
-          { label: 'Total interactions', value: stats.total_events.toLocaleString(), tab: 'overview' },
-          { label: 'Bottlenecks detected', value: bottlenecks.length, note: `${bottlenecks.filter(b => b.severity === 'critical' || b.severity === 'high').length} critical/high`, tab: 'bottlenecks' },
+          { label: 'Employees recorded', value: stats.total_users, tab: 'journey' },
+          { label: 'Apps in use', value: stats.total_applications, note: 'tools employees switch between', tab: 'overview' },
+          { label: 'Different work paths', value: stats.total_variants, note: `${stats.total_variants} distinct step sequences observed — ideally everyone follows the same path. More paths = inconsistent process, harder to automate.`, tab: 'variants' },
+          { label: 'Avg case duration', value: formatDuration(stats.avg_case_duration_seconds), note: 'start to finish per case', tab: 'overview' },
+          { label: 'Bottlenecks detected', value: bottlenecks.length, note: `${bottlenecks.filter(b => b.severity === 'critical' || b.severity === 'high').length} need immediate action`, tab: 'bottlenecks' },
         ].map(s => (
-          <div
-            key={s.label}
-            className={`bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-center${onNavigate ? ' cursor-pointer hover:ring-1 hover:ring-amber-500/20 transition-all' : ''}`}
-            onClick={onNavigate ? () => onNavigate(s.tab) : undefined}
-          >
-            <p className="text-2xl font-black text-zinc-100">{s.value}</p>
-            <p className="text-xs text-zinc-400 mt-0.5">{s.label}</p>
-            {s.note && <p className="text-[11px] text-zinc-500 mt-0.5">{s.note}</p>}
-          </div>
+          <InlineTooltip key={s.label} text={s.note ?? s.label}>
+            <div
+              className={`bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-center${onNavigate ? ' cursor-pointer hover:ring-1 hover:ring-amber-500/20 transition-all' : ''}`}
+              onClick={onNavigate ? () => onNavigate(s.tab) : undefined}
+            >
+              <p className="text-2xl font-black text-zinc-100">{s.value}</p>
+              <p className="text-xs text-zinc-400 mt-0.5">{s.label}</p>
+            </div>
+          </InlineTooltip>
         ))}
       </div>
 
