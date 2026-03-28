@@ -21,12 +21,13 @@ import type { WageConfig } from './business-impact';
 import { CategoryBreakdown, HubInsight } from './category-breakdown';
 import { DataFlowInsight } from './data-flow-insight';
 import { ActionCard } from './action-card';
+import { UserJourneyTimeline } from './user-journey-timeline';
 import type { PipelineOutput, CopilotOutput, ImpactLevel, RecommendationType } from '@/lib/types';
 import { formatDuration, formatDate } from '@/lib/utils';
 import { runAnalysis, getBpmnXml } from '@/lib/api';
 import { generateReport } from '@/lib/report';
 
-type TabId = 'overview' | 'impact' | 'bottlenecks' | 'variants' | 'ai' | 'bpmn' | 'live';
+type TabId = 'overview' | 'impact' | 'bottlenecks' | 'variants' | 'ai' | 'bpmn' | 'live' | 'journey';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'overview', label: 'Overview' },
@@ -36,6 +37,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'ai', label: 'AI Analysis' },
   { id: 'bpmn', label: 'Workflow Diagram' },
   { id: 'live', label: 'Live Monitor' },
+  { id: 'journey', label: 'User Journey' },
 ];
 
 interface CompressedSegment {
@@ -914,6 +916,12 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
       {/* Tab: Live Monitor */}
       {activeTab === 'live' && (
         <div className="tab-content" key="live"><LiveMonitor pipeline={pipeline} copilot={copilot} /></div>
+      )}
+
+      {activeTab === 'journey' && (
+        <div className="tab-content" key="journey">
+          <UserJourneyTimeline pipeline={pipeline} />
+        </div>
       )}
     </div>
   );
