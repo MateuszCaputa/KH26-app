@@ -51,18 +51,18 @@ function getCompactInsight(isReworkLoop: boolean, severity: string): { cause: st
   if (isReworkLoop) {
     return {
       cause: 'Most likely cause: the employee is interrupted mid-task or starts without all the information they need, forcing them to leave and come back.',
-      fix: 'Quick fix: create a short checklist of everything needed before starting this task. No mid-task detours.',
+      fix: 'Create a short checklist of everything needed before starting this task. No mid-task detours.',
     };
   }
   if (severity === 'critical' || severity === 'high') {
     return {
       cause: 'Most likely cause: the handoff is manual — someone finishes and has to notify the next person by message or email, which gets delayed or missed.',
-      fix: 'Quick fix: set up an automatic notification the moment this step is completed. The next person should not have to wait to be told.',
+      fix: 'Set up an automatic notification the moment this step is completed. The next person should not have to wait to be told.',
     };
   }
   return {
     cause: 'Most likely cause: the next step is waiting for an approval or runs only on a fixed schedule, even when work is ready earlier.',
-    fix: 'Quick fix: set a maximum approval response time and enforce it with a reminder. Consider triggering the next step automatically.',
+    fix: 'Set a maximum approval response time and enforce it with a reminder. Consider triggering the next step automatically.',
   };
 }
 
