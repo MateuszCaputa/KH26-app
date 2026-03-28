@@ -30,7 +30,10 @@ const TYPE_ICONS: Record<Alert['type'], string> = {
 function generateAlerts(pipeline: PipelineOutput, copilot: CopilotOutput | null): Alert[] {
   const alerts: Alert[] = [];
   let id = 0;
-  const baseTime = new Date('2026-03-28T09:00:00');
+  const baseTime = pipeline.statistics.start_date
+    ? new Date(pipeline.statistics.start_date)
+    : new Date('2026-03-28T09:00:00');
+  let cumulativeOffset = 0;
 
   const highBottlenecks = pipeline.bottlenecks
     .filter((b) => b.severity === 'critical' || b.severity === 'high')
@@ -38,7 +41,8 @@ function generateAlerts(pipeline: PipelineOutput, copilot: CopilotOutput | null)
     .slice(0, 5);
 
   for (const bn of highBottlenecks) {
-    const ts = new Date(baseTime.getTime() + id * 1200);
+    cumulativeOffset += 1000 + Math.floor(Math.random() * 29000);
+    const ts = new Date(baseTime.getTime() + cumulativeOffset);
     alerts.push({
       id: id++,
       type: 'bottleneck',
@@ -54,7 +58,8 @@ function generateAlerts(pipeline: PipelineOutput, copilot: CopilotOutput | null)
     .slice(0, 3);
 
   for (const act of highCtxSwitch) {
-    const ts = new Date(baseTime.getTime() + id * 1200);
+    cumulativeOffset += 1000 + Math.floor(Math.random() * 29000);
+    const ts = new Date(baseTime.getTime() + cumulativeOffset);
     alerts.push({
       id: id++,
       type: 'context-switch',
@@ -69,7 +74,8 @@ function generateAlerts(pipeline: PipelineOutput, copilot: CopilotOutput | null)
     .slice(0, 3);
 
   for (const flow of flows) {
-    const ts = new Date(baseTime.getTime() + id * 1200);
+    cumulativeOffset += 1000 + Math.floor(Math.random() * 29000);
+    const ts = new Date(baseTime.getTime() + cumulativeOffset);
     alerts.push({
       id: id++,
       type: 'copy-paste',
@@ -93,7 +99,8 @@ function generateAlerts(pipeline: PipelineOutput, copilot: CopilotOutput | null)
   for (const v of loopVariants) {
     const repeated = v.sequence.filter((step, i) => v.sequence.indexOf(step) !== i);
     const uniqueRepeated = [...new Set(repeated)].slice(0, 2);
-    const ts = new Date(baseTime.getTime() + id * 1200);
+    cumulativeOffset += 1000 + Math.floor(Math.random() * 29000);
+    const ts = new Date(baseTime.getTime() + cumulativeOffset);
     alerts.push({
       id: id++,
       type: 'rework',
@@ -104,12 +111,13 @@ function generateAlerts(pipeline: PipelineOutput, copilot: CopilotOutput | null)
   }
 
   const ts = new Date(baseTime.getTime() + id * 1200);
-  const recCount = copilot?.recommendations?.length ?? 0;
+  const recCount = copilot?.recommendations?.length;
+  const recSuffix = recCount != null ? `, ${recCount} automation recommendations generated` : '';
   alerts.push({
     id: id++,
     type: 'complete',
     severity: 'info',
-    message: `Analysis complete: ${pipeline.statistics.total_cases} cases, ${pipeline.statistics.total_activities} activities, ${recCount} automation recommendations generated`,
+    message: `Analysis complete: ${pipeline.statistics.total_cases} cases, ${pipeline.statistics.total_activities} activities${recSuffix}`,
     timestamp: ts.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
   });
 

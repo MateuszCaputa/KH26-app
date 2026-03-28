@@ -18,15 +18,32 @@ TEXT_COL = "text_entries_no"
 
 
 def _compute_context_switches(df: pd.DataFrame) -> dict[str, int]:
-    """Count application switches per activity across all cases."""
+    """Count application switches per activity across all cases.
+
+    Counts switches two ways and takes the max per activity:
+    1. Switches landing on the activity (consecutive events in same case, different app)
+    2. Unique apps used within the activity minus 1 (multi-app activities)
+    """
     if APP_COL not in df.columns:
         return {}
-    sorted_df = df.sort_values([CASE_COL, TIMESTAMP_COL])
+    sorted_df = df.sort_values([CASE_COL, TIMESTAMP_COL]).copy()
+
+    # Method 1: consecutive event switches landing on this activity
     prev_app = sorted_df.groupby(CASE_COL)[APP_COL].shift(1)
     is_switch = (sorted_df[APP_COL] != prev_app) & prev_app.notna()
-    sorted_df = sorted_df.copy()
     sorted_df["_is_switch"] = is_switch.astype(int)
-    return sorted_df.groupby(ACTIVITY_COL)["_is_switch"].sum().to_dict()
+    landing_switches = sorted_df.groupby(ACTIVITY_COL)["_is_switch"].sum()
+
+    # Method 2: count unique apps per (case, activity) pair, sum (unique_apps - 1)
+    apps_per_case_act = sorted_df.groupby([ACTIVITY_COL, CASE_COL])[APP_COL].nunique()
+    multi_app_switches = (apps_per_case_act - 1).clip(lower=0).groupby(level=0).sum()
+
+    result: dict[str, int] = {}
+    for act in set(landing_switches.index) | set(multi_app_switches.index):
+        v1 = int(landing_switches.get(act, 0))
+        v2 = int(multi_app_switches.get(act, 0))
+        result[str(act)] = max(v1, v2)
+    return result
 
 
 def discover_activities(df: pd.DataFrame) -> list[Activity]:

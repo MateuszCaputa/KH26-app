@@ -209,12 +209,12 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
               label="Top Bottleneck"
               value={
                 sortedBottlenecks.length > 0
-                  ? `${sortedBottlenecks[0].from_activity} → ${sortedBottlenecks[0].to_activity}`
+                  ? `${sortedBottlenecks[0].severity} · ${formatDuration(sortedBottlenecks[0].avg_wait_seconds)}`
                   : 'None'
               }
               sub={
                 sortedBottlenecks.length > 0
-                  ? `${sortedBottlenecks[0].severity} · ${formatDuration(sortedBottlenecks[0].avg_wait_seconds)} avg wait`
+                  ? `${sortedBottlenecks[0].from_activity.slice(0, 15)}${sortedBottlenecks[0].from_activity.length > 15 ? '…' : ''} → ${sortedBottlenecks[0].to_activity.slice(0, 15)}${sortedBottlenecks[0].to_activity.length > 15 ? '…' : ''}`
                   : undefined
               }
               tooltip="Highest-severity bottleneck transition — the biggest source of delay in the process"
@@ -635,28 +635,23 @@ function VariantCard({
     if (isHappyPath || happyPathSteps.has(step)) {
       return 'text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700';
     }
-    return 'text-xs px-2 py-0.5 rounded-full bg-amber-900/30 text-amber-300 border border-amber-700';
+    return 'text-xs px-2 py-0.5 rounded-full bg-amber-900/30 text-zinc-200 border border-amber-700';
   }
 
   function singleStepClass(step: string): string {
     if (isHappyPath || happyPathSteps.has(step)) {
       return 'text-xs px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700';
     }
-    return 'text-xs px-2.5 py-1 rounded-full bg-amber-900/30 text-amber-300 border border-amber-700';
+    return 'text-xs px-2.5 py-1 rounded-full bg-amber-900/30 text-zinc-200 border border-amber-700';
   }
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex items-start gap-4">
+    <div className={`bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex items-start gap-4 ${isHappyPath ? 'border-l-2 border-l-green-500' : ''}`}>
       <div className="text-right min-w-[64px]">
         <div className="flex items-center justify-end gap-1.5">
           <p className="text-sm font-semibold font-mono text-zinc-100">
             {v.percentage.toFixed(1)}%
           </p>
-          {isHappyPath && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-900/40 text-green-400 border border-green-800/50">
-              Happy Path
-            </span>
-          )}
         </div>
         <p className="text-xs text-zinc-500 mt-0.5">
           {v.case_count} cases
@@ -671,7 +666,7 @@ function VariantCard({
             {v.sequence.length} steps
           </p>
         )}
-        {deviationCount > 0 && (
+        {deviationCount > 0 && v.sequence.length > 3 && (
           <p className="text-xs text-amber-500 mt-0.5">
             {deviationCount} deviation{deviationCount !== 1 ? 's' : ''}
           </p>
