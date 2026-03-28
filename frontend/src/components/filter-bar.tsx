@@ -6,27 +6,12 @@ import type { BottleneckSeverity } from '@/lib/types';
 
 // ─── Shared primitives ───────────────────────────────────────────────────────
 
-const SEV_STYLE: Record<BottleneckSeverity, { idle: string; active: string; dot: string }> = {
-  critical: {
-    idle: 'border-zinc-700 bg-zinc-800/60 text-zinc-500 hover:border-red-700 hover:text-red-400',
-    active: 'border-red-500 bg-red-900/40 text-red-300 shadow-sm shadow-red-900/30',
-    dot: 'bg-red-500',
-  },
-  high: {
-    idle: 'border-zinc-700 bg-zinc-800/60 text-zinc-500 hover:border-orange-700 hover:text-orange-400',
-    active: 'border-orange-500 bg-orange-900/40 text-orange-300 shadow-sm shadow-orange-900/30',
-    dot: 'bg-orange-500',
-  },
-  medium: {
-    idle: 'border-zinc-700 bg-zinc-800/60 text-zinc-500 hover:border-yellow-700 hover:text-yellow-400',
-    active: 'border-yellow-500 bg-yellow-900/40 text-yellow-300 shadow-sm shadow-yellow-900/30',
-    dot: 'bg-yellow-500',
-  },
-  low: {
-    idle: 'border-zinc-700 bg-zinc-800/60 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300',
-    active: 'border-zinc-400 bg-zinc-700 text-zinc-200 shadow-sm',
-    dot: 'bg-zinc-400',
-  },
+// Dot colors as hex so Tailwind purging can't affect them
+const SEV_DOT_COLOR: Record<BottleneckSeverity, string> = {
+  critical: '#ef4444', // red-500
+  high:     '#f97316', // orange-500
+  medium:   '#eab308', // yellow-500
+  low:      '#a1a1aa', // zinc-400
 };
 
 function SeverityToggle({
@@ -38,16 +23,32 @@ function SeverityToggle({
   active: boolean;
   onToggle: () => void;
 }) {
-  const s = SEV_STYLE[sev];
+  // All class strings are literals so Tailwind includes them
+  const cls = (() => {
+    if (sev === 'critical') return active
+      ? 'border-red-500 bg-red-900/40 text-red-300'
+      : 'border-zinc-700 bg-zinc-800/60 text-zinc-500 hover:border-red-700 hover:text-red-400';
+    if (sev === 'high') return active
+      ? 'border-orange-500 bg-orange-900/40 text-orange-300'
+      : 'border-zinc-700 bg-zinc-800/60 text-zinc-500 hover:border-orange-700 hover:text-orange-400';
+    if (sev === 'medium') return active
+      ? 'border-yellow-500 bg-yellow-900/40 text-yellow-300'
+      : 'border-zinc-700 bg-zinc-800/60 text-zinc-500 hover:border-yellow-700 hover:text-yellow-400';
+    return active
+      ? 'border-zinc-400 bg-zinc-700 text-zinc-200'
+      : 'border-zinc-700 bg-zinc-800/60 text-zinc-500 hover:border-zinc-500 hover:text-zinc-300';
+  })();
+
   return (
     <button
       onClick={onToggle}
       aria-pressed={active}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md border capitalize transition-all ${
-        active ? s.active : s.idle
-      }`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md border capitalize transition-all ${cls}`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${active ? s.dot : 'bg-zinc-600'}`} />
+      <span
+        className="w-1.5 h-1.5 rounded-full flex-shrink-0 transition-opacity"
+        style={{ backgroundColor: active ? SEV_DOT_COLOR[sev] : '#52525b' }}
+      />
       {sev}
     </button>
   );
