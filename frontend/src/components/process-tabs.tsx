@@ -188,7 +188,7 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
       </div>
 
       {/* Tab navigation */}
-      <div className="flex gap-1 border-b border-zinc-800 overflow-x-auto">
+      <div className="flex gap-1 border-b border-zinc-800 overflow-x-auto" role="tablist">
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -203,6 +203,9 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                 ? 'border-blue-500 text-blue-400'
                 : 'border-transparent text-zinc-400 hover:text-zinc-200'
             }`}
+            aria-label={`${tab.label} tab`}
+            aria-selected={activeTab === tab.id}
+            role="tab"
           >
             {tab.label}
           </button>
@@ -211,7 +214,7 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
 
       {/* Tab: Overview */}
       {activeTab === 'overview' && (
-        <div className="space-y-6">
+        <div className="space-y-6 tab-content" key="overview">
           <HealthScore pipeline={pipeline} />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <StatCard
@@ -285,21 +288,21 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                   {topActivities.map((act) => (
                     <tr key={act.name} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
                       <td className="px-4 py-2 text-zinc-200">{act.name}</td>
-                      <td className="px-4 py-2 text-right font-mono text-zinc-400">{act.frequency}</td>
+                      <td className="px-4 py-2 text-right font-mono text-zinc-400">{act.frequency.toLocaleString()}</td>
                       <td className="px-4 py-2 text-right font-mono text-zinc-400">
                         {formatDuration(act.avg_duration_seconds)}
                       </td>
                       <td className="px-4 py-2 text-right font-mono text-zinc-400">
                         {act.copy_paste_count > 0 ? (
                           <span className={act.copy_paste_count > 50 ? 'text-orange-400' : ''}>
-                            {act.copy_paste_count}
+                            {act.copy_paste_count.toLocaleString()}
                           </span>
                         ) : '\u2014'}
                       </td>
                       <td className="px-4 py-2 text-right font-mono text-zinc-400">
                         {act.context_switch_count > 0 ? (
                           <span className={act.context_switch_count > 20 ? 'text-orange-400' : ''}>
-                            {act.context_switch_count}
+                            {act.context_switch_count.toLocaleString()}
                           </span>
                         ) : '\u2014'}
                       </td>
@@ -535,7 +538,7 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                         {formatDuration(bn.max_wait_seconds)}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-zinc-400">
-                        {bn.case_count}
+                        {bn.case_count?.toLocaleString() ?? '—'}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <SeverityBadge severity={bn.severity} />
@@ -583,7 +586,7 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
 
       {/* Tab: AI Analysis */}
       {activeTab === 'ai' && (
-        <div className="space-y-6">
+        <div className="space-y-6 tab-content" key="ai">
           <AskProcess processId={processId} />
 
           {!copilot && !isPending && (
@@ -710,7 +713,7 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
 
       {/* Tab: BPMN */}
       {activeTab === 'bpmn' && (
-        <BpmnTabContent
+        <div className="tab-content" key="bpmn"><BpmnTabContent
           processId={processId}
           pipeline={pipeline}
           recommendations={copilot?.recommendations ?? null}
@@ -718,12 +721,12 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
           bpmnError={bpmnError}
           onLoadBpmn={handleLoadBpmn}
           onDownloadBpmn={handleDownloadBpmn}
-        />
+        /></div>
       )}
 
       {/* Tab: Live Monitor */}
       {activeTab === 'live' && (
-        <LiveMonitor pipeline={pipeline} copilot={copilot} />
+        <div className="tab-content" key="live"><LiveMonitor pipeline={pipeline} copilot={copilot} /></div>
       )}
     </div>
   );
@@ -773,7 +776,7 @@ function VariantCard({
           </p>
         </div>
         <p className="text-xs text-zinc-500 mt-0.5">
-          {v.case_count} cases
+          {v.case_count.toLocaleString()} cases
         </p>
         {v.avg_total_duration_seconds > 0 && (
           <p className="text-xs text-zinc-600 mt-0.5">
