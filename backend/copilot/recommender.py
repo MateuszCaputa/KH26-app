@@ -236,37 +236,60 @@ def _generate_reasoning(
 ) -> str:
     """Generate rule-based reasoning text for a recommendation."""
     reasons = []
+    apps_str = ", ".join(activity.applications[:3]) if activity.applications else "unknown apps"
 
     if activity.copy_paste_count > 0:
         reasons.append(
-            f"This step involves {activity.copy_paste_count} copy-paste operations, "
-            "indicating manual data transfer between systems — a classic RPA target."
+            f"{activity.copy_paste_count} copy-paste operations detected across {apps_str}, "
+            f"totaling ~{activity.copy_paste_count * 5}s of manual data transfer per cycle. "
+            "An RPA bot can replicate these transfers in under 1 second each."
         )
 
     if activity.avg_duration_seconds > 300:
         minutes = activity.avg_duration_seconds / 60
+        total_hours = (activity.avg_duration_seconds * activity.frequency) / 3600
         reasons.append(
-            f"Average duration of {minutes:.1f} minutes represents significant manual effort "
-            "that could be eliminated through automation."
+            f"At {minutes:.1f} min average across {activity.frequency} occurrences, "
+            f"this step consumes {total_hours:.1f} total hours. "
+            f"Automating could recover up to {total_hours * 0.8:.1f}h of manual effort."
+        )
+    elif activity.avg_duration_seconds > 30:
+        total_min = (activity.avg_duration_seconds * activity.frequency) / 60
+        reasons.append(
+            f"Avg duration {activity.avg_duration_seconds:.0f}s × {activity.frequency} occurrences = "
+            f"{total_min:.0f} total minutes of manual work."
         )
 
     if activity.frequency > 20:
         reasons.append(
-            f"High occurrence frequency ({activity.frequency} times) means automation ROI "
-            "compounds quickly — even small time savings multiply across all cases."
+            f"Occurs {activity.frequency} times — even saving {activity.avg_duration_seconds * 0.5:.0f}s per "
+            f"occurrence yields {activity.frequency * activity.avg_duration_seconds * 0.5 / 60:.0f} min total savings."
+        )
+
+    if activity.context_switch_count > 5:
+        reasons.append(
+            f"{activity.context_switch_count} application switches detected, indicating "
+            "fragmented cross-system work that disrupts user focus."
         )
 
     severity = bottleneck_map.get(activity.name, 0.0)
     if severity > 0.5:
+        sev_label = "critical" if severity >= 1.0 else "high"
         reasons.append(
-            "This step is a bottleneck in the process flow, causing downstream delays "
-            "that affect overall throughput."
+            f"Identified as a {sev_label}-severity bottleneck causing downstream delays "
+            "that reduce overall process throughput."
+        )
+
+    if activity.manual_interaction_count > 50:
+        reasons.append(
+            f"{activity.manual_interaction_count} manual interactions (clicks + keystrokes) "
+            "indicate repetitive data entry suitable for automation."
         )
 
     if not reasons:
         reasons.append(
-            f"This step has automation potential (score: {score:.0f}/100) based on "
-            "its frequency, duration, and position in the process flow."
+            f"Automation score {score:.0f}/100 based on {activity.frequency} occurrences, "
+            f"{activity.avg_duration_seconds:.0f}s avg duration, and process position."
         )
 
     return " ".join(reasons)
