@@ -224,6 +224,9 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                     <th className="text-right px-4 py-2 text-xs text-zinc-500 font-medium">
                       <InlineTooltip text="Copy-paste operations detected — manual data transfer between systems, prime RPA target">Copy-Paste</InlineTooltip>
                     </th>
+                    <th className="text-right px-4 py-2 text-xs text-zinc-500 font-medium">
+                      <InlineTooltip text="Application switches detected — frequent switching indicates manual cross-system work, a prime automation target">Ctx Switches</InlineTooltip>
+                    </th>
                     <th className="text-left px-4 py-2 text-xs text-zinc-500 font-medium">
                       <InlineTooltip text="Software applications used during this activity">Applications</InlineTooltip>
                     </th>
@@ -241,6 +244,13 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                         {act.copy_paste_count > 0 ? (
                           <span className={act.copy_paste_count > 50 ? 'text-orange-400' : ''}>
                             {act.copy_paste_count}
+                          </span>
+                        ) : '\u2014'}
+                      </td>
+                      <td className="px-4 py-2 text-right font-mono text-zinc-400">
+                        {act.context_switch_count > 0 ? (
+                          <span className={act.context_switch_count > 20 ? 'text-orange-400' : ''}>
+                            {act.context_switch_count}
                           </span>
                         ) : '\u2014'}
                       </td>

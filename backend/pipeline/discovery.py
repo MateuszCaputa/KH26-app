@@ -17,8 +17,21 @@ CLICKS_COL = "clicks_no"
 TEXT_COL = "text_entries_no"
 
 
+def _compute_context_switches(df: pd.DataFrame) -> dict[str, int]:
+    """Count application switches per activity across all cases."""
+    if APP_COL not in df.columns:
+        return {}
+    sorted_df = df.sort_values([CASE_COL, TIMESTAMP_COL])
+    prev_app = sorted_df.groupby(CASE_COL)[APP_COL].shift(1)
+    is_switch = (sorted_df[APP_COL] != prev_app) & prev_app.notna()
+    sorted_df = sorted_df.copy()
+    sorted_df["_is_switch"] = is_switch.astype(int)
+    return sorted_df.groupby(ACTIVITY_COL)["_is_switch"].sum().to_dict()
+
+
 def discover_activities(df: pd.DataFrame) -> list[Activity]:
     """Extract activity statistics from event log DataFrame."""
+    context_switches = _compute_context_switches(df)
     grouped = df.groupby(ACTIVITY_COL)
 
     activities = []
@@ -48,6 +61,7 @@ def discover_activities(df: pd.DataFrame) -> list[Activity]:
             applications=applications,
             copy_paste_count=copy_paste,
             manual_interaction_count=manual_interactions,
+            context_switch_count=int(context_switches.get(str(name), 0)),
         ))
 
     return sorted(activities, key=lambda a: a.frequency, reverse=True)

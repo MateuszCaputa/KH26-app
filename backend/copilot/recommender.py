@@ -166,6 +166,12 @@ def _score_activity(
     severity_score = bottleneck_map.get(activity.name, 0.0)
     score += severity_score * 25
 
+    # Context switches = cross-app manual work
+    if activity.context_switch_count > 20:
+        score += 15
+    elif activity.context_switch_count > 5:
+        score += 8
+
     # Manual interactions = manual effort
     if activity.manual_interaction_count > 50:
         score += 10

@@ -40,6 +40,7 @@ export interface Activity {
   performers: string[];
   copy_paste_count: number;
   manual_interaction_count: number;
+  context_switch_count: number;
 }
 
 export interface Variant {
