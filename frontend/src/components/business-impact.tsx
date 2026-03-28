@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { PipelineOutput } from '@/lib/types';
 import { formatDuration } from '@/lib/utils';
 
@@ -272,7 +272,7 @@ function WageConfigurator({
               max={999}
               value={wages.uniform}
               onChange={(e) => onChange({ ...wages, uniform: Math.max(1, Number(e.target.value)) })}
-              className="w-20 px-2 py-1 text-sm bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-200 text-center focus:outline-none focus:border-zinc-500 [appearance:textfield]"
+              className="w-20 px-2 py-1 text-sm bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-200 text-center focus:outline-none focus:border-zinc-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
             <span className="text-zinc-500 text-xs">/hr</span>
           </div>
@@ -326,7 +326,7 @@ function WageConfigurator({
                         individual: { ...wages.individual, [id]: Math.max(1, Number(e.target.value)) },
                       })
                     }
-                    className="w-12 bg-transparent text-xs text-zinc-200 text-right focus:outline-none [appearance:textfield]"
+                    className="w-12 bg-transparent text-xs text-zinc-200 text-right focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                   <span className="text-zinc-500 text-[10px]">/h</span>
                 </div>
@@ -482,42 +482,44 @@ function PerUserTable({
             {sorted.map((u) => {
               const isSelected = selectedId === u.userId;
               return (
-                <tr
-                  key={u.userId}
-                  onClick={() => onSelect(u.userId)}
-                  className={`border-b border-zinc-800/50 cursor-pointer transition-colors ${
-                    isSelected
-                      ? 'bg-amber-900/10 border-l-2 border-l-amber-500'
-                      : 'hover:bg-zinc-800/40'
-                  }`}
-                >
-                  <td className="px-5 py-3 text-zinc-200 font-medium">{u.label}</td>
-                  <td className="px-4 py-3 text-right font-mono text-amber-400 tabular-nums">
-                    {fmt(u.totalPerDay)}
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono text-zinc-300 tabular-nums">
-                    {fmtEur(u.monthlyCost)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">
-                      {u.topWasteSource}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 w-32">
-                    <WasteBar value={u.totalPerDay} max={maxWaste} color="bg-amber-500/60" />
-                  </td>
-                </tr>
+                <React.Fragment key={u.userId}>
+                  <tr
+                    onClick={() => onSelect(u.userId)}
+                    className={`border-b border-zinc-800/50 cursor-pointer transition-colors ${
+                      isSelected
+                        ? 'bg-amber-900/10 border-l-2 border-l-amber-500'
+                        : 'hover:bg-zinc-800/40'
+                    }`}
+                  >
+                    <td className="px-5 py-3 text-zinc-200 font-medium">{u.label}</td>
+                    <td className="px-4 py-3 text-right font-mono text-amber-400 tabular-nums">
+                      {fmt(u.totalPerDay)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-zinc-300 tabular-nums">
+                      {fmtEur(u.monthlyCost)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">
+                        {u.topWasteSource}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 w-32">
+                      <WasteBar value={u.totalPerDay} max={maxWaste} color="bg-amber-500/60" />
+                    </td>
+                  </tr>
+                  {isSelected && renderDrillDown && (
+                    <tr>
+                      <td colSpan={5} className="p-0">
+                        {renderDrillDown(u)}
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               );
-              // Drilldown is rendered outside the table below
             })}
           </tbody>
         </table>
       </div>
-      {/* Render drilldown inline right after the table, tied to selected user */}
-      {selectedId && renderDrillDown && (() => {
-        const selectedUser = sorted.find((u) => u.userId === selectedId);
-        return selectedUser ? renderDrillDown(selectedUser) : null;
-      })()}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import React from 'react';
+import { useState, useTransition, useRef } from 'react';
 import { StatCard } from './stat-card';
 import { SeverityBadge } from './severity-badge';
 import { RecommendationCard } from './recommendation-card';
@@ -38,6 +39,7 @@ const TABS: { id: TabId; label: string; tooltip: string }[] = [
   { id: 'bottlenecks', label: 'Bottlenecks', tooltip: 'Transitions with the highest waiting time — critical handoffs that slow down the entire process' },
   { id: 'variants', label: 'Process Paths', tooltip: 'All unique paths through the process — more variants means less standardization and harder automation' },
   { id: 'ai', label: 'AI Analysis', tooltip: 'AI-generated recommendations and BPMN model — ask questions about the process in natural language' },
+  { id: 'bpmn', label: 'Workflow Diagram', tooltip: 'Under construction — this feature is being redesigned' },
   { id: 'live', label: 'Live Monitor', tooltip: 'Real-time activity feed — watch the process as it happens and track active cases' },
 ];
 
@@ -103,9 +105,13 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [showAllApps, setShowAllApps] = useState(false);
   const [showAllPerformers, setShowAllPerformers] = useState(false);
+  const [showAllTransfers, setShowAllTransfers] = useState(false);
   const [recImpact, setRecImpact] = useState<ImpactLevel[]>([]);
   const [recType, setRecType] = useState<RecommendationType[]>([]);
   const [wages, setWages] = useState<WageConfig>(defaultWageConfig());
+  const [highlightedRecId, setHighlightedRecId] = useState<number | null>(null);
+  const recRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const matrixRef = useRef<HTMLDivElement>(null);
 
   const {
     filters,
@@ -199,26 +205,34 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
         </button>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard
-          label="Cases"
-          value={stats.total_cases.toLocaleString()}
-          tooltip="Unique process executions found — more cases = more reliable automation ROI estimates"
-        />
-        <StatCard
-          label="Events"
-          value={stats.total_events.toLocaleString()}
-          tooltip="Total user interactions (clicks, keystrokes, app switches) — high counts signal repetitive manual work ripe for automation"
-        />
-        <StatCard
-          label="Activities"
-          value={stats.total_activities}
-          tooltip="Distinct process steps — each is a potential automation target"
-        />
-        <StatCard
-          label="Variants"
-          value={stats.total_variants}
-          tooltip="Unique process paths — more variants means less standardization and higher automation complexity"
-        />
+        <div onClick={() => setActiveTab('overview')} className="cursor-pointer hover:ring-1 hover:ring-amber-500/20 transition-all rounded-xl">
+          <StatCard
+            label="Cases"
+            value={stats.total_cases.toLocaleString()}
+            tooltip="Unique process executions found — more cases = more reliable automation ROI estimates"
+          />
+        </div>
+        <div onClick={() => setActiveTab('overview')} className="cursor-pointer hover:ring-1 hover:ring-amber-500/20 transition-all rounded-xl">
+          <StatCard
+            label="Events"
+            value={stats.total_events.toLocaleString()}
+            tooltip="Total user interactions (clicks, keystrokes, app switches) — high counts signal repetitive manual work ripe for automation"
+          />
+        </div>
+        <div onClick={() => setActiveTab('overview')} className="cursor-pointer hover:ring-1 hover:ring-amber-500/20 transition-all rounded-xl">
+          <StatCard
+            label="Activities"
+            value={stats.total_activities}
+            tooltip="Distinct process steps — each is a potential automation target"
+          />
+        </div>
+        <div onClick={() => setActiveTab('variants')} className="cursor-pointer hover:ring-1 hover:ring-amber-500/20 transition-all rounded-xl">
+          <StatCard
+            label="Variants"
+            value={stats.total_variants}
+            tooltip="Unique process paths — more variants means less standardization and higher automation complexity"
+          />
+        </div>
       </div>
 
       {/* Tab navigation */}
@@ -250,7 +264,7 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
       {/* Tab: Dashboard */}
       {activeTab === 'dashboard' && (
         <div className="tab-content" key="dashboard">
-          <ExecutiveDashboard pipeline={pipeline} copilot={copilot} />
+          <ExecutiveDashboard pipeline={pipeline} copilot={copilot} onNavigate={(tab) => setActiveTab(tab as TabId)} />
         </div>
       )}
 
@@ -449,7 +463,7 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                       <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
                         <div className="h-full bg-blue-600 rounded-full" style={{ width: `${pct}%` }} />
                       </div>
-                      <div className="text-xs text-zinc-500">{activePct.toFixed(0)}% active</div>
+                      <InlineTooltip text="Percentage of time in this app where the user was actively interacting (clicking, typing) vs. idle/background time"><div className="text-xs text-zinc-500">{activePct.toFixed(0)}% active</div></InlineTooltip>
                     </div>
                   );
                 })}
@@ -478,29 +492,43 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                 tooltip="Copy-paste operations detected between applications from Activity Heatmap data — each flow represents manual data transfer that could be automated"
               >
                 <div className="p-4 space-y-3">
-                  {[...copy_paste_flows]
-                    .sort((a, b) => b.count - a.count)
-                    .map((flow) => {
-                      const pct = maxFlow > 0 ? (flow.count / maxFlow) * 100 : 0;
-                      return (
-                        <div key={`${flow.source_app}-${flow.target_app}`} className="space-y-1">
-                          <div className="flex justify-between text-xs">
-                            <span className="text-zinc-300">
-                              {flow.source_app} <span className="text-zinc-500">{'\u2192'}</span> {flow.target_app}
-                            </span>
-                            <span className="text-zinc-500 font-mono">
-                              {flow.count} operations
-                            </span>
-                          </div>
-                          <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-orange-600 rounded-full"
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
+                  {(() => {
+                    const sorted = [...copy_paste_flows].sort((a, b) => b.count - a.count);
+                    const visible = showAllTransfers ? sorted : sorted.slice(0, 10);
+                    return (
+                      <>
+                        {visible.map((flow) => {
+                          const pct = maxFlow > 0 ? (flow.count / maxFlow) * 100 : 0;
+                          return (
+                            <div key={`${flow.source_app}-${flow.target_app}`} className="space-y-1">
+                              <div className="flex justify-between text-xs">
+                                <span className="text-zinc-300">
+                                  {flow.source_app} <span className="text-zinc-500">{'\u2192'}</span> {flow.target_app}
+                                </span>
+                                <span className="text-zinc-500 font-mono">
+                                  {flow.count} operations
+                                </span>
+                              </div>
+                              <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-orange-600 rounded-full"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {sorted.length > 10 && (
+                          <button
+                            onClick={() => setShowAllTransfers(!showAllTransfers)}
+                            className="w-full py-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors border-t border-zinc-800 mt-2"
+                          >
+                            {showAllTransfers ? 'Show less' : `Show all ${sorted.length} transfers`}
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </CollapsibleSection>
             );
@@ -522,12 +550,12 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-zinc-800">
-                        <th className="text-left px-4 py-2 text-xs text-zinc-500 font-medium">User</th>
-                        <th className="text-right px-4 py-2 text-xs text-zinc-500 font-medium">Events</th>
-                        <th className="text-right px-4 py-2 text-xs text-zinc-500 font-medium">Avg Duration</th>
-                        <th className="text-right px-4 py-2 text-xs text-zinc-500 font-medium">Activities</th>
-                        <th className="text-left px-4 py-2 text-xs text-zinc-500 font-medium">Top Apps</th>
-                        <th className="px-4 py-2 text-xs text-zinc-500 font-medium">Workload</th>
+                        <th className="text-left px-4 py-2 text-xs text-zinc-500 font-medium"><InlineTooltip text="Employee identifier from the event log">User</InlineTooltip></th>
+                        <th className="text-right px-4 py-2 text-xs text-zinc-500 font-medium"><InlineTooltip text="Total user interactions (clicks, keystrokes, app switches) recorded for this user">Events</InlineTooltip></th>
+                        <th className="text-right px-4 py-2 text-xs text-zinc-500 font-medium"><InlineTooltip text="Average time this user spends on each activity occurrence">Avg Duration</InlineTooltip></th>
+                        <th className="text-right px-4 py-2 text-xs text-zinc-500 font-medium"><InlineTooltip text="Number of distinct process steps this user performs">Activities</InlineTooltip></th>
+                        <th className="text-left px-4 py-2 text-xs text-zinc-500 font-medium"><InlineTooltip text="Most frequently used applications by this user">Top Apps</InlineTooltip></th>
+                        <th className="px-4 py-2 text-xs text-zinc-500 font-medium"><InlineTooltip text="Relative event volume compared to the busiest user — full bar = highest workload in the team">Workload</InlineTooltip></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -661,6 +689,187 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                 : 'Filters active — showing variants matching filtered activities.'}
             </div>
           )}
+          {/* User Activity Clusters */}
+          {(() => {
+            // Build user activity profiles
+            const userProfiles: Record<string, Set<string>> = {};
+            for (const act of pipeline.activities) {
+              for (const perf of act.performers) {
+                if (!userProfiles[perf]) userProfiles[perf] = new Set();
+                userProfiles[perf].add(act.name);
+              }
+            }
+
+            const userIds = Object.keys(userProfiles);
+            if (userIds.length < 2) return null;
+
+            // Compute pairwise Jaccard similarity
+            function jaccard(a: Set<string>, b: Set<string>): number {
+              const intersection = new Set([...a].filter(x => b.has(x)));
+              const union = new Set([...a, ...b]);
+              return union.size > 0 ? intersection.size / union.size : 0;
+            }
+
+            // Simple clustering: group users with similarity > 0.5
+            const clusters: { users: string[]; sharedActivities: string[]; avgSimilarity: number }[] = [];
+            const assigned = new Set<string>();
+
+            for (const userA of userIds) {
+              if (assigned.has(userA)) continue;
+              const cluster = [userA];
+              assigned.add(userA);
+
+              for (const userB of userIds) {
+                if (assigned.has(userB)) continue;
+                const sim = jaccard(userProfiles[userA], userProfiles[userB]);
+                if (sim >= 0.5) {
+                  cluster.push(userB);
+                  assigned.add(userB);
+                }
+              }
+
+              if (cluster.length >= 2) {
+                // Find shared activities
+                const shared = [...userProfiles[cluster[0]]].filter(act =>
+                  cluster.every(u => userProfiles[u]?.has(act))
+                );
+
+                // Average similarity within cluster
+                let simSum = 0, simCount = 0;
+                for (let i = 0; i < cluster.length; i++) {
+                  for (let j = i + 1; j < cluster.length; j++) {
+                    simSum += jaccard(userProfiles[cluster[i]], userProfiles[cluster[j]]);
+                    simCount++;
+                  }
+                }
+
+                clusters.push({
+                  users: cluster,
+                  sharedActivities: shared.slice(0, 5),
+                  avgSimilarity: simCount > 0 ? simSum / simCount : 0,
+                });
+              }
+            }
+
+            // User comparison when 2+ users selected
+            const selectedComparison = filters.users.length >= 2 ? (() => {
+              const selected = filters.users;
+              const allActivities = pipeline.activities;
+              const profiles = selected.map(u => ({
+                user: u,
+                activities: new Set(allActivities.filter(a => a.performers.includes(u)).map(a => a.name)),
+              }));
+
+              // Shared across ALL selected users
+              const shared = [...profiles[0].activities].filter(act =>
+                profiles.every(p => p.activities.has(act))
+              );
+
+              // Unique to each user
+              const unique = profiles.map(p => ({
+                user: p.user,
+                unique: [...p.activities].filter(act =>
+                  profiles.filter(other => other.user !== p.user).every(other => !other.activities.has(act))
+                ),
+              }));
+
+              // Pairwise similarity
+              const sim = profiles.length === 2
+                ? jaccard(profiles[0].activities, profiles[1].activities)
+                : profiles.reduce((s, p, i) => {
+                    let sum = 0, count = 0;
+                    for (let j = i + 1; j < profiles.length; j++) {
+                      sum += jaccard(p.activities, profiles[j].activities);
+                      count++;
+                    }
+                    return count > 0 ? s + sum / count : s;
+                  }, 0) / Math.max(1, profiles.length - 1);
+
+              return { shared, unique, similarity: sim };
+            })() : null;
+
+            // Format user ID helper
+            const fmtUser = (u: string) => {
+              const idx = pipeline.performer_stats?.findIndex(p => p.user === u) ?? -1;
+              return idx >= 0 ? `User ${String.fromCharCode(65 + idx)}` : u.slice(0, 10);
+            };
+
+            return (
+              <div className="space-y-3">
+                {/* Selected user comparison */}
+                {selectedComparison && (
+                  <div className="bg-zinc-900 border border-indigo-900/30 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold text-zinc-100">User Comparison</h4>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                        selectedComparison.similarity >= 0.7 ? 'bg-green-900/30 text-green-400 border border-green-800/40' :
+                        selectedComparison.similarity >= 0.4 ? 'bg-amber-900/30 text-amber-400 border border-amber-800/40' :
+                        'bg-red-900/30 text-red-400 border border-red-800/40'
+                      }`}>
+                        {Math.round(selectedComparison.similarity * 100)}% similar
+                      </span>
+                    </div>
+
+                    {selectedComparison.shared.length > 0 && (
+                      <div>
+                        <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5">Shared Activities ({selectedComparison.shared.length})</p>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {selectedComparison.shared.slice(0, 8).map(act => (
+                            <span key={act} className="text-xs px-2 py-0.5 rounded-full bg-indigo-900/20 text-indigo-300 border border-indigo-800/30">{act}</span>
+                          ))}
+                          {selectedComparison.shared.length > 8 && <span className="text-xs text-zinc-500">+{selectedComparison.shared.length - 8} more</span>}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {selectedComparison.unique.map(({ user, unique: uniq }) => (
+                        <div key={user}>
+                          <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5">Only {fmtUser(user)} ({uniq.length})</p>
+                          <div className="flex gap-1 flex-wrap">
+                            {uniq.slice(0, 5).map(act => (
+                              <span key={act} className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">{act}</span>
+                            ))}
+                            {uniq.length > 5 && <span className="text-xs text-zinc-500">+{uniq.length - 5}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Auto-detected clusters */}
+                {clusters.length > 0 && !selectedComparison && (
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-3">
+                    <h4 className="text-sm font-semibold text-zinc-100">User Clusters — Who Does Similar Work?</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {clusters.map((cluster, idx) => (
+                        <div key={idx} className="bg-zinc-800/40 border border-zinc-700/50 rounded-lg p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex gap-1.5 flex-wrap">
+                              {cluster.users.map(u => (
+                                <span key={u} className="text-xs px-2 py-0.5 rounded-full bg-indigo-900/20 text-indigo-300 border border-indigo-800/30 font-medium">
+                                  {fmtUser(u)}
+                                </span>
+                              ))}
+                            </div>
+                            <span className="text-[10px] text-zinc-500">{Math.round(cluster.avgSimilarity * 100)}% match</span>
+                          </div>
+                          {cluster.sharedActivities.length > 0 && (
+                            <div className="flex gap-1 flex-wrap">
+                              {cluster.sharedActivities.map(act => (
+                                <span key={act} className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500">{act}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           {sorted.length === 0 ? (
             <p className="text-zinc-500 text-sm">{filtersActive ? 'No variants match current filters.' : 'No variants found.'}</p>
           ) : (
@@ -669,6 +878,37 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
               .map((v, idx) => (
                 <VariantCard key={v.variant_id} variant={v} isHappyPath={idx === 0} happyPathSteps={happyPathSteps} />
               ))
+          )}
+          {/* Process Blueprint */}
+          {sorted.length > 0 && (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 mt-4">
+              <h4 className="text-sm font-semibold text-zinc-100 mb-1">Process Blueprint</h4>
+              <p className="text-xs text-zinc-500 mb-4">Most common path through the process (Variant #1)</p>
+              <div className="flex items-center gap-1 flex-wrap">
+                {sorted[0].sequence.slice(0, 12).map((step, i) => {
+                  const isBn = pipeline.bottlenecks.some(bn => bn.from_activity === step || bn.to_activity === step);
+                  const hasCopyPaste = pipeline.activities.find(a => a.name === step)?.copy_paste_count ?? 0;
+                  return (
+                    <React.Fragment key={i}>
+                      {i > 0 && <span className="text-zinc-600 text-xs">&rarr;</span>}
+                      <span className={`text-xs px-2.5 py-1.5 rounded-lg border font-medium ${
+                        isBn ? 'bg-red-950/30 border-red-800/40 text-red-300' :
+                        hasCopyPaste > 30 ? 'bg-blue-950/30 border-blue-800/40 text-blue-300' :
+                        'bg-zinc-800 border-zinc-700 text-zinc-300'
+                      }`}>
+                        {step}
+                      </span>
+                    </React.Fragment>
+                  );
+                })}
+                {sorted[0].sequence.length > 12 && <span className="text-xs text-zinc-500">+{sorted[0].sequence.length - 12} more steps</span>}
+              </div>
+              <div className="flex gap-3 mt-3 text-[10px] text-zinc-500">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-red-500/60" /> Bottleneck</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-blue-500/60" /> Copy-paste heavy</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-zinc-600" /> Normal</span>
+              </div>
+            </div>
           )}
         </div>
         );
@@ -743,7 +983,18 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
               )}
 
               {copilot.recommendations?.length > 0 && (
-                <AutomationMatrix recommendations={copilot.recommendations} pipeline={pipeline} />
+                <div ref={matrixRef}>
+                  <AutomationMatrix
+                    recommendations={copilot.recommendations}
+                    pipeline={pipeline}
+                    onBubbleClick={(recId) => {
+                      setHighlightedRecId(recId);
+                      const el = recRefs.current[recId];
+                      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      setTimeout(() => setHighlightedRecId(null), 3000);
+                    }}
+                  />
+                </div>
               )}
 
               {copilot.recommendations?.length > 0 && (() => {
@@ -839,7 +1090,18 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                         .sort((a, b) => a.priority - b.priority)
                         .map((rec) => {
                           const bp = copilot.blueprints?.find((b) => b.target_activity === rec.target);
-                          return <RecommendationCard key={rec.id} recommendation={rec} blueprint={bp} />;
+                          return (
+                            <RecommendationCard
+                              key={rec.id}
+                              recommendation={rec}
+                              blueprint={bp}
+                              isHighlighted={highlightedRecId === rec.id}
+                              cardRef={(el) => { recRefs.current[rec.id] = el; }}
+                              onShowOnMatrix={() => {
+                                matrixRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              }}
+                            />
+                          );
                         })
                     )}
                   </div>
@@ -868,15 +1130,11 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
 
       {/* Tab: BPMN */}
       {activeTab === 'bpmn' && (
-        <div className="tab-content" key="bpmn"><BpmnTabContent
-          processId={processId}
-          pipeline={pipeline}
-          recommendations={copilot?.recommendations ?? null}
-          bpmnXml={bpmnXml}
-          bpmnError={bpmnError}
-          onLoadBpmn={handleLoadBpmn}
-          onDownloadBpmn={handleDownloadBpmn}
-        /></div>
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <div className="text-6xl mb-4">🚧</div>
+          <h2 className="text-2xl font-bold text-white mb-2">UNDER CONSTRUCTION</h2>
+          <p className="text-zinc-400">This feature is being redesigned and will be available soon.</p>
+        </div>
       )}
 
       {/* Tab: Live Monitor */}
@@ -1098,9 +1356,9 @@ function BottleneckRow({ bottleneck }: { bottleneck: import('@/lib/types').Bottl
           )}
         </div>
         <div className="flex items-center gap-3 shrink-0 text-xs text-zinc-500">
-          <span className="font-mono text-zinc-300">{formatDuration(bottleneck.avg_wait_seconds)}</span>
-          <span className="font-mono">max {formatDuration(bottleneck.max_wait_seconds)}</span>
-          <span>{bottleneck.case_count} cases</span>
+          <InlineTooltip text="Average delay between these steps across all observed cases"><span className="font-mono text-zinc-300">{formatDuration(bottleneck.avg_wait_seconds)}</span></InlineTooltip>
+          <InlineTooltip text="Longest observed delay — worst-case scenario"><span className="font-mono">max {formatDuration(bottleneck.max_wait_seconds)}</span></InlineTooltip>
+          <InlineTooltip text="Number of process executions where this transition occurred"><span>{bottleneck.case_count} cases</span></InlineTooltip>
           <SeverityBadge severity={bottleneck.severity} />
         </div>
       </div>

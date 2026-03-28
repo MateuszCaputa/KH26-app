@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 import type { Recommendation, RecommendationType, ImpactLevel, AutomationBlueprint } from '@/lib/types';
 import { formatDuration } from '@/lib/utils';
 
@@ -27,6 +27,9 @@ const COMPLEXITY_STYLES: Record<string, string> = {
 interface RecommendationCardProps {
   recommendation: Recommendation;
   blueprint?: AutomationBlueprint;
+  isHighlighted?: boolean;
+  onShowOnMatrix?: () => void;
+  cardRef?: React.Ref<HTMLDivElement>;
 }
 
 function downloadBlueprint(bp: AutomationBlueprint) {
@@ -39,11 +42,11 @@ function downloadBlueprint(bp: AutomationBlueprint) {
   URL.revokeObjectURL(url);
 }
 
-export function RecommendationCard({ recommendation: rec, blueprint }: RecommendationCardProps) {
+export function RecommendationCard({ recommendation: rec, blueprint, isHighlighted, onShowOnMatrix, cardRef }: RecommendationCardProps) {
   const [showBlueprint, setShowBlueprint] = useState(false);
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 space-y-3">
+    <div ref={cardRef} className={`bg-zinc-900 border border-zinc-800 rounded-lg p-4 space-y-3 transition-all duration-300 ${isHighlighted ? 'ring-2 ring-amber-400/60' : ''}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-mono text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded">
@@ -54,6 +57,14 @@ export function RecommendationCard({ recommendation: rec, blueprint }: Recommend
           >
             {rec.type}
           </span>
+          {onShowOnMatrix && (
+            <button
+              onClick={onShowOnMatrix}
+              className="text-[10px] text-zinc-500 hover:text-amber-400 cursor-pointer transition-colors"
+            >
+              Show on matrix ↑
+            </button>
+          )}
           {rec.automation_type && (
             <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-500 border border-zinc-700">
               {rec.automation_type}

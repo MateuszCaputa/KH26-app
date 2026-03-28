@@ -12,6 +12,7 @@ const PASSIVE_APPS = new Set(['Teams', 'Outlook', 'New Outlook', 'Slack', 'Gmail
 interface ExecutiveDashboardProps {
   pipeline: PipelineOutput;
   copilot?: CopilotOutput | null;
+  onNavigate?: (tab: string) => void;
 }
 
 interface Win {
@@ -39,7 +40,7 @@ function classifyActivity(a: Activity): 'core' | 'copy_paste' | 'coordination' {
   return rate >= 0.3 || a.copy_paste_count >= 60 ? 'copy_paste' : 'core';
 }
 
-export function ExecutiveDashboard({ pipeline, copilot }: ExecutiveDashboardProps) {
+export function ExecutiveDashboard({ pipeline, copilot, onNavigate }: ExecutiveDashboardProps) {
   const { statistics: stats, bottlenecks, activities } = pipeline;
 
   const monthlyMultiplier = useMemo(() => {
@@ -193,7 +194,10 @@ const totalPotentialSavings = wins.reduce((s, w) => s + w.eurPerMonth, 0);
     <div className="space-y-6">
 
       {/* ── HERO ── */}
-      <div className="relative overflow-hidden rounded-2xl bg-zinc-900 border border-zinc-800 px-8 py-8">
+      <div
+        className={`relative overflow-hidden rounded-2xl bg-zinc-900 border border-zinc-800 px-8 py-8${onNavigate ? ' cursor-pointer hover:ring-1 hover:ring-amber-500/20 transition-all' : ''}`}
+        onClick={onNavigate ? () => onNavigate('impact') : undefined}
+      >
         {/* Subtle red glow behind the number */}
         <div className="absolute -top-10 -left-10 w-64 h-64 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative">
@@ -215,16 +219,21 @@ const totalPotentialSavings = wins.reduce((s, w) => s + w.eurPerMonth, 0);
           {/* 3 inline stat pills */}
           <div className="flex gap-3 flex-wrap mt-5">
             {[
-              { label: 'Automation Waste', value: `${wastePct}% of work time`, accent: 'text-red-400' },
-              { label: 'Avg Case Duration', value: formatDuration(stats.avg_case_duration_seconds), accent: 'text-zinc-200' },
-              { label: 'Potential Monthly Savings', value: formatEur(totalPotentialSavings), accent: 'text-green-400' },
+              { label: 'Automation Waste', value: `${wastePct}% of work time`, accent: 'text-red-400', tab: 'overview' },
+              { label: 'Avg Case Duration', value: formatDuration(stats.avg_case_duration_seconds), accent: 'text-zinc-200', tab: 'variants' },
+              { label: 'Potential Monthly Savings', value: formatEur(totalPotentialSavings), accent: 'text-green-400', tab: 'impact' },
             ].map(s => (
-              <div key={s.label} className="flex items-center gap-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg px-3 py-1.5">
+              <div
+                key={s.label}
+                className={`flex items-center gap-2 bg-zinc-800/60 border border-zinc-700/50 rounded-lg px-3 py-1.5${onNavigate ? ' cursor-pointer hover:ring-1 hover:ring-amber-500/20 transition-all' : ''}`}
+                onClick={onNavigate ? (e) => { e.stopPropagation(); onNavigate(s.tab); } : undefined}
+              >
                 <span className="text-xs text-zinc-500">{s.label}</span>
                 <span className={`text-xs font-semibold ${s.accent}`}>{s.value}</span>
               </div>
             ))}
           </div>
+          {onNavigate && <p className="text-zinc-600 text-[10px] text-right mt-2">View details →</p>}
         </div>
       </div>
 
@@ -237,7 +246,8 @@ const totalPotentialSavings = wins.reduce((s, w) => s + w.eurPerMonth, 0);
           {wins.map((win, i) => (
             <div
               key={i}
-              className="relative bg-zinc-900 border border-zinc-800 rounded-xl p-5 flex flex-col gap-3 overflow-hidden"
+              className={`relative bg-zinc-900 border border-zinc-800 rounded-xl p-5 flex flex-col gap-3 overflow-hidden${onNavigate ? ' cursor-pointer hover:ring-1 hover:ring-amber-500/20 transition-all' : ''}`}
+              onClick={onNavigate ? () => onNavigate('ai') : undefined}
             >
               {/* Rank */}
               <div className="absolute top-4 right-4 text-3xl font-black text-zinc-800 select-none leading-none">
@@ -262,6 +272,7 @@ const totalPotentialSavings = wins.reduce((s, w) => s + w.eurPerMonth, 0);
                 </div>
                 <p className="text-xs text-zinc-500">{win.hoursPerMonth}h recovered</p>
               </div>
+              {onNavigate && <p className="text-zinc-600 text-[10px] text-right">View details →</p>}
             </div>
           ))}
         </div>
@@ -271,7 +282,10 @@ const totalPotentialSavings = wins.reduce((s, w) => s + w.eurPerMonth, 0);
       <div className="grid grid-cols-2 gap-4">
 
         {/* Time breakdown */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+        <div
+          className={`bg-zinc-900 border border-zinc-800 rounded-xl p-6${onNavigate ? ' cursor-pointer hover:ring-1 hover:ring-amber-500/20 transition-all' : ''}`}
+          onClick={onNavigate ? () => onNavigate('overview') : undefined}
+        >
           <p className="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-4">
             Where time actually goes
           </p>
@@ -303,11 +317,15 @@ const totalPotentialSavings = wins.reduce((s, w) => s + w.eurPerMonth, 0);
               ))}
             </div>
           </div>
+          {onNavigate && <p className="text-zinc-600 text-[10px] text-right mt-2">View details →</p>}
         </div>
 
         {/* Worst bottleneck */}
         {worstBn && bnFmt && (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex flex-col gap-4">
+          <div
+            className={`bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex flex-col gap-4${onNavigate ? ' cursor-pointer hover:ring-1 hover:ring-amber-500/20 transition-all' : ''}`}
+            onClick={onNavigate ? () => onNavigate('bottlenecks') : undefined}
+          >
             <p className="text-xs uppercase tracking-widest text-zinc-500 font-medium">
               Biggest single bottleneck
             </p>
@@ -351,6 +369,7 @@ const totalPotentialSavings = wins.reduce((s, w) => s + w.eurPerMonth, 0);
               </div>
             </div>
             <BottleneckInsight bottleneck={worstBn} />
+            {onNavigate && <p className="text-zinc-600 text-[10px] text-right">View details →</p>}
           </div>
         )}
       </div>
@@ -358,13 +377,17 @@ const totalPotentialSavings = wins.reduce((s, w) => s + w.eurPerMonth, 0);
       {/* ── BOTTOM: process stats strip ── */}
       <div className="grid grid-cols-5 gap-3">
         {[
-          { label: 'Users observed', value: stats.total_users },
-          { label: 'Applications used', value: stats.total_applications },
-          { label: 'Process variants', value: stats.total_variants, note: 'paths diverge from standard' },
-          { label: 'Total interactions', value: stats.total_events.toLocaleString() },
-          { label: 'Bottlenecks detected', value: bottlenecks.length, note: `${bottlenecks.filter(b => b.severity === 'critical' || b.severity === 'high').length} critical/high` },
+          { label: 'Users observed', value: stats.total_users, tab: 'journey' },
+          { label: 'Applications used', value: stats.total_applications, tab: 'overview' },
+          { label: 'Process variants', value: stats.total_variants, note: 'paths diverge from standard', tab: 'variants' },
+          { label: 'Total interactions', value: stats.total_events.toLocaleString(), tab: 'overview' },
+          { label: 'Bottlenecks detected', value: bottlenecks.length, note: `${bottlenecks.filter(b => b.severity === 'critical' || b.severity === 'high').length} critical/high`, tab: 'bottlenecks' },
         ].map(s => (
-          <div key={s.label} className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-center">
+          <div
+            key={s.label}
+            className={`bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-center${onNavigate ? ' cursor-pointer hover:ring-1 hover:ring-amber-500/20 transition-all' : ''}`}
+            onClick={onNavigate ? () => onNavigate(s.tab) : undefined}
+          >
             <p className="text-2xl font-black text-zinc-100">{s.value}</p>
             <p className="text-xs text-zinc-400 mt-0.5">{s.label}</p>
             {s.note && <p className="text-[11px] text-zinc-500 mt-0.5">{s.note}</p>}

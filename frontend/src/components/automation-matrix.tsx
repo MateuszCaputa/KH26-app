@@ -7,6 +7,7 @@ import { InlineTooltip } from './tooltip';
 interface AutomationMatrixProps {
   recommendations: Recommendation[];
   pipeline: PipelineOutput;
+  onBubbleClick?: (recId: number) => void;
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -24,8 +25,9 @@ interface DotData {
   radius: number;
 }
 
-export function AutomationMatrix({ recommendations, pipeline }: AutomationMatrixProps) {
+export function AutomationMatrix({ recommendations, pipeline, onBubbleClick }: AutomationMatrixProps) {
   const [hoveredId, setHoveredId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   if (recommendations.length === 0) return null;
 
@@ -113,10 +115,14 @@ export function AutomationMatrix({ recommendations, pipeline }: AutomationMatrix
               r={d.radius}
               fill={TYPE_COLORS[d.rec.type] ?? '#71717a'}
               opacity={hoveredId == null || hoveredId === d.rec.id ? 0.8 : 0.25}
-              stroke={hoveredId === d.rec.id ? '#fff' : 'none'}
-              strokeWidth={2}
+              stroke={selectedId === d.rec.id ? '#f59e0b' : hoveredId === d.rec.id ? '#fff' : 'none'}
+              strokeWidth={selectedId === d.rec.id ? 3 : 2}
               onMouseEnter={() => setHoveredId(d.rec.id)}
               onMouseLeave={() => setHoveredId(null)}
+              onClick={() => {
+                setSelectedId(d.rec.id);
+                onBubbleClick?.(d.rec.id);
+              }}
               className="cursor-pointer transition-opacity"
             />
           ))}

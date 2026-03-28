@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { PipelineOutput, Activity, Bottleneck } from '@/lib/types';
 import { formatDuration } from '@/lib/utils';
 import { normalizeActivityNameShort, formatUserId as fmtUid } from '@/lib/format-names';
@@ -19,6 +19,8 @@ interface TimelineBlock {
 
 interface UserJourneyTimelineProps {
   pipeline: PipelineOutput;
+  initialUsers?: string[];
+  onActivityClick?: (activityName: string) => void;
 }
 
 const CLASS_CONFIG: Record<BlockClass, { color: string; label: string; textColor: string }> = {
@@ -127,42 +129,115 @@ function buildTimeline(user: string, pipeline: PipelineOutput): TimelineBlock[] 
   }));
 }
 
-export function UserJourneyTimeline({ pipeline }: UserJourneyTimelineProps) {
+function computeSimilarity(userA: string, userB: string, activities: Activity[]): number {
+  const setA = new Set(activities.filter(a => a.performers.includes(userA)).map(a => a.name));
+  const setB = new Set(activities.filter(a => a.performers.includes(userB)).map(a => a.name));
+  const intersection = new Set([...setA].filter(x => setB.has(x)));
+  const union = new Set([...setA, ...setB]);
+  return union.size > 0 ? intersection.size / union.size : 0;
+}
+
+function computeUserStats(
+  user: string,
+  blocks: TimelineBlock[],
+  pipeline: PipelineOutput,
+) {
+  const totalSeconds = blocks.reduce((s, b) => s + b.durationSeconds, 0);
+  const waste = blocks
+    .filter(b => b.class === 'bottleneck' || b.class === 'copy_paste')
+    .reduce((s, b) => s + b.durationSeconds, 0);
+  const wastePercent = totalSeconds > 0 ? Math.round((waste / totalSeconds) * 100) : 0;
+  const performerStat = pipeline.performer_stats?.find(p => p.user === user);
+  const userActCount = pipeline.activities.filter(a => a.performers.includes(user)).length;
+  const totalEvents = performerStat?.total_events ?? pipeline.statistics.total_events;
+  return { totalSeconds, wastePercent, totalEvents, userActCount };
+}
+
+export function UserJourneyTimeline({ pipeline, initialUsers, onActivityClick }: UserJourneyTimelineProps) {
   const users = useMemo(() => {
     const set = new Set<string>();
     pipeline.activities.forEach(a => a.performers.forEach(p => set.add(p)));
     return Array.from(set).sort();
   }, [pipeline]);
 
-  const [selectedUser, setSelectedUser] = useState(users[0] ?? '');
+  const [selectedUsers, setSelectedUsers] = useState<string[]>(
+    initialUsers && initialUsers.length > 0
+      ? initialUsers
+      : users.length > 0 ? [users[0]] : []
+  );
   const [tooltip, setTooltip] = useState<{ block: TimelineBlock; x: number; y: number } | null>(null);
 
-  const blocks = useMemo(
-    () => (selectedUser ? buildTimeline(selectedUser, pipeline) : []),
-    [selectedUser, pipeline]
+  // Sync with initialUsers prop when it changes
+  useEffect(() => {
+    if (initialUsers && initialUsers.length > 0) {
+      setSelectedUsers(initialUsers);
+    }
+  }, [initialUsers]);
+
+  const timelines = useMemo(
+    () => selectedUsers.map(user => ({
+      user,
+      blocks: buildTimeline(user, pipeline),
+    })),
+    [selectedUsers, pipeline]
   );
 
-  const totalSeconds = useMemo(() => blocks.reduce((s, b) => s + b.durationSeconds, 0), [blocks]);
+  // Aggregate stats across all selected users
+  const aggregateStats = useMemo(() => {
+    if (timelines.length === 0) return { totalSeconds: 0, wastePercent: 0, totalEvents: 0, userActCount: 0 };
+    if (timelines.length === 1) {
+      return computeUserStats(timelines[0].user, timelines[0].blocks, pipeline);
+    }
+    // Aggregate across multiple users
+    let totalSeconds = 0;
+    let wasteSeconds = 0;
+    let totalEvents = 0;
+    const activityNames = new Set<string>();
+    for (const { user, blocks } of timelines) {
+      const stats = computeUserStats(user, blocks, pipeline);
+      totalSeconds += stats.totalSeconds;
+      wasteSeconds += blocks
+        .filter(b => b.class === 'bottleneck' || b.class === 'copy_paste')
+        .reduce((s, b) => s + b.durationSeconds, 0);
+      totalEvents += stats.totalEvents;
+      pipeline.activities
+        .filter(a => a.performers.includes(user))
+        .forEach(a => activityNames.add(a.name));
+    }
+    const wastePercent = totalSeconds > 0 ? Math.round((wasteSeconds / totalSeconds) * 100) : 0;
+    return { totalSeconds, wastePercent, totalEvents, userActCount: activityNames.size };
+  }, [timelines, pipeline]);
 
-  const wastePercent = useMemo(() => {
-    const waste = blocks
-      .filter(b => b.class === 'bottleneck' || b.class === 'copy_paste')
-      .reduce((s, b) => s + b.durationSeconds, 0);
-    return totalSeconds > 0 ? Math.round((waste / totalSeconds) * 100) : 0;
-  }, [blocks, totalSeconds]);
+  // Similarity between selected users (pairwise average)
+  const similarityInfo = useMemo(() => {
+    if (selectedUsers.length < 2) return null;
+    const pairs: { a: string; b: string; score: number }[] = [];
+    for (let i = 0; i < selectedUsers.length; i++) {
+      for (let j = i + 1; j < selectedUsers.length; j++) {
+        pairs.push({
+          a: selectedUsers[i],
+          b: selectedUsers[j],
+          score: computeSimilarity(selectedUsers[i], selectedUsers[j], pipeline.activities),
+        });
+      }
+    }
+    const avgScore = pairs.reduce((s, p) => s + p.score, 0) / pairs.length;
+    return { avgScore, pairs };
+  }, [selectedUsers, pipeline.activities]);
 
-  const performerStat = pipeline.performer_stats?.find(p => p.user === selectedUser);
-  const userActCount = pipeline.activities.filter(a => a.performers.includes(selectedUser)).length;
-
-  // Time-axis ticks: one per hour, starting at 9:00
+  // Time-axis ticks for single-user view
   const hourTicks = useMemo(() => {
+    if (timelines.length !== 1) return [];
+    const totalSeconds = timelines[0].blocks.reduce((s, b) => s + b.durationSeconds, 0);
     if (totalSeconds === 0) return [];
     const ticks: { label: string; fraction: number }[] = [{ label: '9:00', fraction: 0 }];
     for (let h = 1; h * 3600 < totalSeconds; h++) {
       ticks.push({ label: `${9 + h}:00`, fraction: (h * 3600) / totalSeconds });
     }
     return ticks;
-  }, [totalSeconds]);
+  }, [timelines]);
+
+  const isMultiUser = selectedUsers.length > 1;
 
   if (users.length === 0) {
     return (
@@ -178,19 +253,25 @@ export function UserJourneyTimeline({ pipeline }: UserJourneyTimelineProps) {
       <div>
         <h3 className="text-sm font-semibold text-zinc-100">User Journey Timeline</h3>
         <p className="text-xs text-zinc-500 mt-0.5">
-          One employee's reconstructed workday — blocks sized by duration and colored by activity type
+          {isMultiUser
+            ? 'Compare reconstructed workdays across selected employees'
+            : "One employee's reconstructed workday — blocks sized by duration and colored by activity type"}
         </p>
       </div>
 
-      {/* User picker */}
+      {/* User picker (multi-select) */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs text-zinc-500 font-medium shrink-0">User:</span>
+        <span className="text-xs text-zinc-500 font-medium shrink-0">Users:</span>
         {users.map(user => (
           <button
             key={user}
-            onClick={() => setSelectedUser(user)}
+            onClick={() => setSelectedUsers(prev =>
+              prev.includes(user)
+                ? prev.filter(u => u !== user)
+                : [...prev, user]
+            )}
             className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${
-              selectedUser === user
+              selectedUsers.includes(user)
                 ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-900/40'
                 : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600'
             }`}
@@ -200,147 +281,205 @@ export function UserJourneyTimeline({ pipeline }: UserJourneyTimelineProps) {
         ))}
       </div>
 
-      {/* Stats row — always 4 columns */}
-      <div className="grid grid-cols-4 gap-3">
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-          <div className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Day Duration</div>
-          <div className="text-xl font-semibold text-zinc-100">{formatDuration(totalSeconds)}</div>
-        </div>
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-          <div className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Events Recorded</div>
-          <div className="text-xl font-semibold text-zinc-100">
-            {(performerStat?.total_events ?? pipeline.statistics.total_events).toLocaleString()}
+      {/* Similarity badge */}
+      {similarityInfo && (
+        <div className="flex items-center gap-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-950/40 border border-indigo-800/40 text-xs">
+            <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+            <span className="text-indigo-300 font-medium">
+              {Math.round(similarityInfo.avgScore * 100)}% similar activities
+            </span>
+            {similarityInfo.pairs.length === 1 && (
+              <span className="text-indigo-500">
+                ({formatUserId(similarityInfo.pairs[0].a)} vs {formatUserId(similarityInfo.pairs[0].b)})
+              </span>
+            )}
+            {similarityInfo.pairs.length > 1 && (
+              <span className="text-indigo-500">
+                (avg across {similarityInfo.pairs.length} pairs)
+              </span>
+            )}
           </div>
         </div>
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
-          <div className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Distinct Activities</div>
-          <div className="text-xl font-semibold text-zinc-100">{userActCount}</div>
+      )}
+
+      {/* Empty state */}
+      {selectedUsers.length === 0 && (
+        <div className="py-10 text-center text-zinc-600 text-sm">
+          Select one or more users above to view their timeline.
         </div>
-        <div
-          className={`border rounded-lg p-3 ${
-            wastePercent >= 40
-              ? 'bg-red-950/40 border-red-900/50'
-              : wastePercent >= 20
-              ? 'bg-amber-950/40 border-amber-900/50'
-              : 'bg-zinc-900 border-zinc-800'
-          }`}
-        >
-          <div className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Automation Waste</div>
+      )}
+
+      {/* Stats row */}
+      {selectedUsers.length > 0 && (
+        <div className="grid grid-cols-4 gap-3">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+            <div className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">
+              {isMultiUser ? 'Total Duration' : 'Day Duration'}
+            </div>
+            <div className="text-xl font-semibold text-zinc-100">{formatDuration(aggregateStats.totalSeconds)}</div>
+          </div>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+            <div className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Events Recorded</div>
+            <div className="text-xl font-semibold text-zinc-100">
+              {aggregateStats.totalEvents.toLocaleString()}
+            </div>
+          </div>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+            <div className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">
+              {isMultiUser ? 'Unique Activities' : 'Distinct Activities'}
+            </div>
+            <div className="text-xl font-semibold text-zinc-100">{aggregateStats.userActCount}</div>
+          </div>
           <div
-            className={`text-xl font-semibold ${
-              wastePercent >= 40 ? 'text-red-400' : wastePercent >= 20 ? 'text-amber-400' : 'text-green-400'
+            className={`border rounded-lg p-3 ${
+              aggregateStats.wastePercent >= 40
+                ? 'bg-red-950/40 border-red-900/50'
+                : aggregateStats.wastePercent >= 20
+                ? 'bg-amber-950/40 border-amber-900/50'
+                : 'bg-zinc-900 border-zinc-800'
             }`}
           >
-            {wastePercent}%
+            <div className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Automation Waste</div>
+            <div
+              className={`text-xl font-semibold ${
+                aggregateStats.wastePercent >= 40 ? 'text-red-400' : aggregateStats.wastePercent >= 20 ? 'text-amber-400' : 'text-green-400'
+              }`}
+            >
+              {aggregateStats.wastePercent}%
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Timeline */}
-      <div
-        className="relative bg-zinc-900 border border-zinc-800 rounded-xl"
-        onMouseMove={e => {
-          if (tooltip) setTooltip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null);
-        }}
-        onMouseLeave={() => setTooltip(null)}
-      >
-        {blocks.length === 0 ? (
-          <div className="py-10 text-center text-zinc-600 text-sm">
-            No activity data for this user.
-          </div>
-        ) : (
-          <>
-            {/* Block row */}
-            <div className="relative flex h-24 mx-4 mt-4 mb-8 rounded-lg overflow-hidden gap-px">
-              {blocks.map(block => {
-                const cfg = CLASS_CONFIG[block.class];
-                const widthPct = block.widthFraction * 100;
-                const isHovered = tooltip?.block.id === block.id;
-
-                return (
-                  <div
-                    key={block.id}
-                    className="relative h-full shrink-0 cursor-pointer"
-                    style={{
-                      width: `${widthPct}%`,
-                      backgroundColor: cfg.color,
-                      opacity: tooltip && !isHovered ? 0.45 : isHovered ? 1 : 0.88,
-                      transition: 'opacity 0.1s, filter 0.1s',
-                      filter: isHovered ? 'brightness(1.12)' : 'none',
-                    }}
-                    onMouseEnter={e => setTooltip({ block, x: e.clientX, y: e.clientY })}
-                  >
-                    {/* Diagonal stripe for bottleneck blocks */}
-                    {block.class === 'bottleneck' && (
-                      <div
-                        className="absolute inset-0 pointer-events-none"
-                        style={{
-                          backgroundImage:
-                            'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.22) 5px, rgba(0,0,0,0.22) 10px)',
-                        }}
-                      />
-                    )}
-                    {/* Label — only if block is wide enough */}
-                    {widthPct > 9 && (
-                      <div
-                        className="absolute inset-0 flex items-center justify-center px-2 pointer-events-none"
-                        style={{ color: cfg.textColor }}
-                      >
-                        <span className="text-[11px] font-semibold truncate text-center leading-tight drop-shadow-sm">
-                          {block.label}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+      {/* Single-user timeline */}
+      {selectedUsers.length === 1 && timelines.length === 1 && (
+        <div
+          className="relative bg-zinc-900 border border-zinc-800 rounded-xl"
+          onMouseMove={e => {
+            if (tooltip) setTooltip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null);
+          }}
+          onMouseLeave={() => setTooltip(null)}
+        >
+          {timelines[0].blocks.length === 0 ? (
+            <div className="py-10 text-center text-zinc-600 text-sm">
+              No activity data for this user.
             </div>
-
-            {/* Time axis */}
-            <div className="absolute bottom-2 left-4 right-4 pointer-events-none">
-              <div className="relative h-5">
-                {hourTicks.map(tick => (
-                  <div
-                    key={tick.label}
-                    className="absolute flex flex-col items-center"
-                    style={{ left: `${tick.fraction * 100}%`, transform: 'translateX(-50%)' }}
-                  >
-                    <div className="w-px h-1.5 bg-zinc-700" />
-                    <span className="text-[9px] text-zinc-600 whitespace-nowrap mt-0.5">{tick.label}</span>
-                  </div>
+          ) : (
+            <>
+              {/* Block row */}
+              <div className="relative flex h-24 mx-4 mt-4 mb-8 rounded-lg overflow-hidden gap-px">
+                {timelines[0].blocks.map(block => (
+                  <TimelineBlockEl
+                    key={block.id}
+                    block={block}
+                    tooltip={tooltip}
+                    setTooltip={setTooltip}
+                    onActivityClick={onActivityClick}
+                  />
                 ))}
               </div>
-            </div>
 
-            {/* Axis baseline */}
-            <div className="absolute bottom-7 left-4 right-4 h-px bg-zinc-800 pointer-events-none" />
-          </>
-        )}
-      </div>
+              {/* Time axis */}
+              <div className="absolute bottom-2 left-4 right-4 pointer-events-none">
+                <div className="relative h-5">
+                  {hourTicks.map(tick => (
+                    <div
+                      key={tick.label}
+                      className="absolute flex flex-col items-center"
+                      style={{ left: `${tick.fraction * 100}%`, transform: 'translateX(-50%)' }}
+                    >
+                      <div className="w-px h-1.5 bg-zinc-700" />
+                      <span className="text-[9px] text-zinc-600 whitespace-nowrap mt-0.5">{tick.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Axis baseline */}
+              <div className="absolute bottom-7 left-4 right-4 h-px bg-zinc-800 pointer-events-none" />
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Multi-user stacked timelines */}
+      {isMultiUser && (
+        <div
+          className="space-y-4"
+          onMouseMove={e => {
+            if (tooltip) setTooltip(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null);
+          }}
+          onMouseLeave={() => setTooltip(null)}
+        >
+          {timelines.map(({ user, blocks }) => {
+            const stats = computeUserStats(user, blocks, pipeline);
+            return (
+              <div key={user} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-xs font-medium text-zinc-300 w-20 shrink-0">{formatUserId(user)}</span>
+                  <div className="flex items-center gap-3 text-[10px] text-zinc-500">
+                    <span>{formatDuration(stats.totalSeconds)}</span>
+                    <span>{stats.userActCount} activities</span>
+                    <span
+                      className={
+                        stats.wastePercent >= 40 ? 'text-red-400' : stats.wastePercent >= 20 ? 'text-amber-400' : 'text-green-400'
+                      }
+                    >
+                      {stats.wastePercent}% waste
+                    </span>
+                  </div>
+                </div>
+                {blocks.length === 0 ? (
+                  <div className="py-4 text-center text-zinc-600 text-xs">
+                    No activity data for this user.
+                  </div>
+                ) : (
+                  <div className="relative flex h-16 rounded-lg overflow-hidden gap-px">
+                    {blocks.map(block => (
+                      <TimelineBlockEl
+                        key={block.id}
+                        block={block}
+                        tooltip={tooltip}
+                        setTooltip={setTooltip}
+                        onActivityClick={onActivityClick}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Legend + insight */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-4 flex-wrap">
-          {(Object.entries(CLASS_CONFIG) as [BlockClass, (typeof CLASS_CONFIG)[BlockClass]][]).map(([cls, cfg]) => (
-            <div key={cls} className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: cfg.color }} />
-              <span className="text-xs text-zinc-400">{cfg.label}</span>
-            </div>
-          ))}
-        </div>
-
-        {wastePercent > 0 && (
-          <div
-            className={`shrink-0 text-xs px-3 py-1.5 rounded-md border font-medium ${
-              wastePercent >= 40
-                ? 'bg-red-950/50 text-red-300 border-red-900/40'
-                : 'bg-amber-950/50 text-amber-300 border-amber-900/40'
-            }`}
-          >
-            {wastePercent}% of this user's day is a direct automation target
+      {selectedUsers.length > 0 && (
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-4 flex-wrap">
+            {(Object.entries(CLASS_CONFIG) as [BlockClass, (typeof CLASS_CONFIG)[BlockClass]][]).map(([cls, cfg]) => (
+              <div key={cls} className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: cfg.color }} />
+                <span className="text-xs text-zinc-400">{cfg.label}</span>
+              </div>
+            ))}
           </div>
-        )}
-      </div>
+
+          {aggregateStats.wastePercent > 0 && (
+            <div
+              className={`shrink-0 text-xs px-3 py-1.5 rounded-md border font-medium ${
+                aggregateStats.wastePercent >= 40
+                  ? 'bg-red-950/50 text-red-300 border-red-900/40'
+                  : 'bg-amber-950/50 text-amber-300 border-amber-900/40'
+              }`}
+            >
+              {aggregateStats.wastePercent}% of {isMultiUser ? 'selected users\'' : "this user's"} day is a direct automation target
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tooltip */}
       {tooltip && (
@@ -349,6 +488,64 @@ export function UserJourneyTimeline({ pipeline }: UserJourneyTimelineProps) {
           style={{ left: tooltip.x + 14, top: tooltip.y - 10 }}
         >
           <BlockTooltip block={tooltip.block} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TimelineBlockEl({
+  block,
+  tooltip,
+  setTooltip,
+  onActivityClick,
+}: {
+  block: TimelineBlock;
+  tooltip: { block: TimelineBlock; x: number; y: number } | null;
+  setTooltip: (t: { block: TimelineBlock; x: number; y: number } | null) => void;
+  onActivityClick?: (activityName: string) => void;
+}) {
+  const cfg = CLASS_CONFIG[block.class];
+  const widthPct = block.widthFraction * 100;
+  const isHovered = tooltip?.block.id === block.id;
+
+  return (
+    <div
+      key={block.id}
+      className="relative h-full shrink-0 cursor-pointer"
+      style={{
+        width: `${widthPct}%`,
+        backgroundColor: cfg.color,
+        opacity: tooltip && !isHovered ? 0.45 : isHovered ? 1 : 0.88,
+        transition: 'opacity 0.1s, filter 0.1s',
+        filter: isHovered ? 'brightness(1.12)' : 'none',
+      }}
+      onMouseEnter={e => setTooltip({ block, x: e.clientX, y: e.clientY })}
+      onClick={() => {
+        if (onActivityClick && block.activity) {
+          onActivityClick(block.activity.name);
+        }
+      }}
+    >
+      {/* Diagonal stripe for bottleneck blocks */}
+      {block.class === 'bottleneck' && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage:
+              'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.22) 5px, rgba(0,0,0,0.22) 10px)',
+          }}
+        />
+      )}
+      {/* Label — only if block is wide enough */}
+      {widthPct > 9 && (
+        <div
+          className="absolute inset-0 flex items-center justify-center px-2 pointer-events-none"
+          style={{ color: cfg.textColor }}
+        >
+          <span className="text-[11px] font-semibold truncate text-center leading-tight drop-shadow-sm">
+            {block.label}
+          </span>
         </div>
       )}
     </div>
