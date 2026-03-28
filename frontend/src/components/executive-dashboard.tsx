@@ -185,7 +185,8 @@ export function ExecutiveDashboard({ pipeline, copilot, onNavigate }: ExecutiveD
     : null;
 
 const totalPotentialSavings = wins.reduce((s, w) => s + w.eurPerMonth, 0);
-  const wastePct = timeBreakdown.copy_paste + timeBreakdown.waiting + timeBreakdown.coordination;
+  // Only copy-paste + idle waiting — the two buckets directly eliminated by automation
+  const wastePct = timeBreakdown.copy_paste + timeBreakdown.waiting;
 
   // Donut: conic-gradient segments (core → copy_paste → coordination → waiting)
   const donutGradient = (() => {
@@ -234,7 +235,7 @@ const totalPotentialSavings = wins.reduce((s, w) => s + w.eurPerMonth, 0);
           {/* 3 inline stat pills */}
           <div className="flex gap-3 flex-wrap mt-5">
             {[
-              { label: 'Automation Waste', value: `${wastePct}% of work time`, accent: 'text-red-400', tab: 'overview' },
+              { label: 'Time automatable', value: `${wastePct}% of work time`, accent: 'text-red-400', tab: 'overview' },
               { label: 'Avg Case Duration', value: formatDuration(stats.avg_case_duration_seconds), accent: 'text-zinc-200', tab: 'variants' },
               { label: 'Potential Monthly Savings', value: formatEur(totalPotentialSavings), accent: 'text-green-400', tab: 'impact' },
             ].map(s => (
@@ -313,7 +314,7 @@ const totalPotentialSavings = wins.reduce((s, w) => s + w.eurPerMonth, 0);
               />
               <div className="absolute inset-5 rounded-full bg-zinc-900 flex flex-col items-center justify-center">
                 <span className="text-xl font-black text-white">{wastePct}%</span>
-                <span className="text-[11px] text-zinc-400 uppercase tracking-wide">waste</span>
+                <span className="text-[11px] text-zinc-400 uppercase tracking-wide">automatable</span>
               </div>
             </div>
             {/* Legend */}

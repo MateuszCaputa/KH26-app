@@ -24,6 +24,7 @@ import { UserJourneyTimeline } from './user-journey-timeline';
 import { ExecutiveDashboard } from './executive-dashboard';
 import { BusinessIdInsight } from './business-id-insight';
 import { BottleneckInsight } from './bottleneck-insight';
+import { OverviewAISummary } from './overview-ai-summary';
 import type { PipelineOutput, CopilotOutput, ImpactLevel, RecommendationType } from '@/lib/types';
 import { formatDuration, formatDate } from '@/lib/utils';
 import { runAnalysis, getBpmnXml } from '@/lib/api';
@@ -271,6 +272,7 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
       {/* Tab: Overview */}
       {activeTab === 'overview' && (
         <div className="space-y-6 tab-content" key="overview">
+          <OverviewAISummary pipeline={pipeline} />
           <OverviewFilterBar
             filters={filters}
             availableUsers={availableUsers}
