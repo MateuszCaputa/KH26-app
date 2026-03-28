@@ -16,6 +16,8 @@ import { BeforeAfter } from './before-after';
 import { OverviewFilterBar, BottleneckFilterBar, VariantFilterBar } from './filter-bar';
 import { useFilters } from '@/hooks/use-filters';
 import { CostOfInaction } from './cost-of-inaction';
+import { BusinessImpact, defaultWageConfig } from './business-impact';
+import type { WageConfig } from './business-impact';
 import { CategoryBreakdown, HubInsight } from './category-breakdown';
 import { DataFlowInsight } from './data-flow-insight';
 import { ActionCard } from './action-card';
@@ -24,10 +26,11 @@ import { formatDuration, formatDate } from '@/lib/utils';
 import { runAnalysis, getBpmnXml } from '@/lib/api';
 import { generateReport } from '@/lib/report';
 
-type TabId = 'overview' | 'bottlenecks' | 'variants' | 'ai' | 'bpmn' | 'live';
+type TabId = 'overview' | 'impact' | 'bottlenecks' | 'variants' | 'ai' | 'bpmn' | 'live';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'overview', label: 'Overview' },
+  { id: 'impact', label: 'Business Impact' },
   { id: 'bottlenecks', label: 'Bottlenecks' },
   { id: 'variants', label: 'Process Paths' },
   { id: 'ai', label: 'AI Analysis' },
@@ -99,6 +102,7 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
   const [showAllPerformers, setShowAllPerformers] = useState(false);
   const [recImpact, setRecImpact] = useState<ImpactLevel[]>([]);
   const [recType, setRecType] = useState<RecommendationType[]>([]);
+  const [wages, setWages] = useState<WageConfig>(defaultWageConfig());
 
   const {
     filters,
@@ -556,6 +560,13 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
               </CollapsibleSection>
             );
           })()}
+        </div>
+      )}
+
+      {/* Tab: Business Impact */}
+      {activeTab === 'impact' && (
+        <div className="tab-content" key="impact">
+          <BusinessImpact pipeline={pipeline} wages={wages} onWagesChange={setWages} />
         </div>
       )}
 
