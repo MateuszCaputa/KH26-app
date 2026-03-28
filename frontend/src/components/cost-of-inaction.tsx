@@ -82,11 +82,11 @@ function BreakdownRow({
         <span className="flex items-center gap-2 text-zinc-400">
           {icon}
           <span>{label}</span>
-          <span className="text-zinc-600 text-[10px]">{note}</span>
+          <span className="text-zinc-500 text-[10px]">{note}</span>
         </span>
         <span className="font-mono text-zinc-300 tabular-nums">
           {formatHours(secondsPerDay)}/day
-          <span className="text-zinc-600 ml-1">({hours < 0.1 ? '<6m' : `${Math.round(pct)}%`})</span>
+          <span className="text-zinc-500 ml-1">({hours < 0.1 ? '<6m' : `${Math.round(pct)}%`})</span>
         </span>
       </div>
       <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
@@ -135,7 +135,7 @@ export function CostOfInaction({ pipeline }: CostOfInactionProps) {
           </div>
           {/* Hourly rate editor */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-[10px] text-zinc-600">at</span>
+            <span className="text-[10px] text-zinc-500">at</span>
             {editing ? (
               <input
                 type="number"
@@ -172,7 +172,7 @@ export function CostOfInaction({ pipeline }: CostOfInactionProps) {
               {formatEur(monthlyCost)}
               <span className="text-sm font-normal text-zinc-500">/mo</span>
             </div>
-            <div className="text-xs text-zinc-600">
+            <div className="text-xs text-zinc-500">
               {formatEur(annualCost)}/yr · {formatHours(waste.perUserPerDay)}/day per user
             </div>
           </div>
@@ -220,7 +220,7 @@ export function CostOfInaction({ pipeline }: CostOfInactionProps) {
         </div>
 
         {/* Footer note */}
-        <p className="text-[10px] text-zinc-600 leading-relaxed">
+        <p className="text-[10px] text-zinc-500 leading-relaxed">
           Based on {waste.daysInDataset} days of recorded data · copy-paste overhead per Gloria Mark (UC Irvine) · automating the top recommendations eliminates this cost
         </p>
       </div>

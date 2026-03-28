@@ -67,7 +67,7 @@ export function HealthScore({ pipeline }: HealthScoreProps) {
           Process Health
         </h3>
         <InlineTooltip text="Composite score from three factors: standardization (how many cases follow the dominant path), bottleneck severity distribution (fraction of critical/high vs total), and automation burden (fraction of activities with heavy copy-paste). Each scores 0–100, then averaged.">
-          <span className="text-xs text-zinc-600 cursor-help">?</span>
+          <span className="text-xs text-zinc-500 cursor-help">?</span>
         </InlineTooltip>
       </div>
 
@@ -75,7 +75,7 @@ export function HealthScore({ pipeline }: HealthScoreProps) {
         <span className={`text-4xl font-bold tabular-nums score-glow ${scoreTextColor(overall)}`}>
           {overall}
         </span>
-        <span className="text-lg text-zinc-600 mb-1">/ 100</span>
+        <span className="text-lg text-zinc-500 mb-1">/ 100</span>
       </div>
 
       <div className="w-full h-3 bg-zinc-800 rounded-full overflow-hidden mb-4">

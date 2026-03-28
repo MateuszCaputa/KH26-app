@@ -133,7 +133,7 @@ export function HubInsight({ copyPasteFlows }: HubInsightProps) {
         {hub.topFlows.map((flow) => (
           <div key={`${flow.source_app}-${flow.target_app}`} className="flex justify-between text-xs">
             <span className="text-zinc-300">
-              {flow.source_app} <span className="text-zinc-600">{'\u2192'}</span> {flow.target_app}
+              {flow.source_app} <span className="text-zinc-500">{'\u2192'}</span> {flow.target_app}
             </span>
             <span className="text-amber-400 font-mono">{flow.count.toLocaleString()} transfers</span>
           </div>

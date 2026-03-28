@@ -67,7 +67,7 @@ function PresetChips({
 }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide whitespace-nowrap">
+      <span className="text-[10px] text-zinc-400 font-medium uppercase tracking-wide whitespace-nowrap">
         {label}
       </span>
       <div className="flex gap-1">
@@ -361,7 +361,7 @@ function FilterShell({ isActive, count, children, onClear }: { isActive: boolean
   return (
     <div className={`rounded-xl border px-4 py-2.5 transition-colors ${isActive ? 'border-zinc-700 bg-zinc-900/80' : 'border-zinc-800 bg-zinc-900/40'}`}>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest select-none mr-1">
+        <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest select-none mr-1">
           Filter
         </span>
         {children}
@@ -400,7 +400,7 @@ export function OverviewFilterBar({
             placeholder="Search activities…"
             value={filters.search}
             onChange={(e) => onSetSearch(e.target.value)}
-            className="pl-7 pr-3 py-1 text-[11px] bg-zinc-800 border border-zinc-700 rounded-md text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 w-40 transition-colors"
+            className="pl-7 pr-3 py-1 text-[11px] bg-zinc-800 border border-zinc-700 rounded-md text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 w-40 transition-colors"
           />
         </div>
 
@@ -446,7 +446,7 @@ export function BottleneckFilterBar({
       <FilterShell isActive={isActive} count={count} onClear={onClear}>
         {/* Severity */}
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide whitespace-nowrap">
+          <span className="text-[10px] text-zinc-400 font-medium uppercase tracking-wide whitespace-nowrap">
             Severity
           </span>
           <div className="flex gap-1">

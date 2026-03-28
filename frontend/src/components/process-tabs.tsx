@@ -372,7 +372,7 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                             </span>
                           ))}
                           {act.applications.length > 4 && (
-                            <span className="text-xs text-zinc-600">
+                            <span className="text-xs text-zinc-500">
                               +{act.applications.length - 4}
                             </span>
                           )}
@@ -435,7 +435,7 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                       <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
                         <div className="h-full bg-blue-600 rounded-full" style={{ width: `${pct}%` }} />
                       </div>
-                      <div className="text-xs text-zinc-600">{activePct.toFixed(0)}% active</div>
+                      <div className="text-xs text-zinc-500">{activePct.toFixed(0)}% active</div>
                     </div>
                   );
                 })}
@@ -472,7 +472,7 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                         <div key={`${flow.source_app}-${flow.target_app}`} className="space-y-1">
                           <div className="flex justify-between text-xs">
                             <span className="text-zinc-300">
-                              {flow.source_app} <span className="text-zinc-600">{'\u2192'}</span> {flow.target_app}
+                              {flow.source_app} <span className="text-zinc-500">{'\u2192'}</span> {flow.target_app}
                             </span>
                             <span className="text-zinc-500 font-mono">
                               {flow.count} operations
@@ -630,7 +630,7 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                     <tr key={i} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
                       <td className="px-4 py-3 text-zinc-200">
                         <span className="text-zinc-400">{bn.from_activity}</span>
-                        <span className="mx-2 text-zinc-600">{'\u2192'}</span>
+                        <span className="mx-2 text-zinc-500">{'\u2192'}</span>
                         <span>{bn.to_activity}</span>
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-zinc-400">
@@ -793,7 +793,7 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                 {/* Recommendation filters */}
                 <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-2.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest select-none mr-1">Filter</span>
+                    <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest select-none mr-1">Filter</span>
                     <div className="flex items-center gap-1.5">
                       <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wide">Impact</span>
                       <div className="flex gap-1">
@@ -971,13 +971,13 @@ function VariantCard({
         </InlineTooltip>
         {v.avg_total_duration_seconds > 0 && (
           <InlineTooltip text="Average time from first to last step in this variant. Shorter = more efficient path.">
-            <p className="text-xs text-zinc-600 mt-0.5">
+            <p className="text-xs text-zinc-500 mt-0.5">
               {formatDuration(v.avg_total_duration_seconds)}
             </p>
           </InlineTooltip>
         )}
         {v.sequence.length > 5 && (
-          <p className="text-xs text-zinc-600 mt-0.5">
+          <p className="text-xs text-zinc-500 mt-0.5">
             {v.sequence.length} steps
           </p>
         )}
@@ -1001,7 +1001,7 @@ function VariantCard({
                         {step}
                       </span>
                       {si < segment.steps.length - 1 && (
-                        <span className="text-zinc-600 text-xs">{'\u2192'}</span>
+                        <span className="text-zinc-500 text-xs">{'\u2192'}</span>
                       )}
                     </span>
                   ))}
@@ -1013,7 +1013,7 @@ function VariantCard({
                 </span>
               )}
               {idx < visible.length - 1 && (
-                <span className="text-zinc-600 text-xs">{'\u2192'}</span>
+                <span className="text-zinc-500 text-xs">{'\u2192'}</span>
               )}
             </span>
           ))}

@@ -122,11 +122,11 @@ export function RecommendationCard({ recommendation: rec, blueprint }: Recommend
                 <ol className="space-y-1.5">
                   {blueprint.steps.map((step, i) => (
                     <li key={i} className="flex gap-2 text-xs">
-                      <span className="text-zinc-600 font-mono w-4 flex-shrink-0">{i + 1}.</span>
+                      <span className="text-zinc-500 font-mono w-4 flex-shrink-0">{i + 1}.</span>
                       <div>
                         <span className="text-zinc-300">{step.description}</span>
                         {step.target_app && (
-                          <span className="ml-1.5 text-zinc-600">({step.target_app})</span>
+                          <span className="ml-1.5 text-zinc-500">({step.target_app})</span>
                         )}
                       </div>
                     </li>

@@ -288,7 +288,7 @@ function WageConfigurator({
                 onChange={(e) => { setQuickText(e.target.value); setParseError(false); }}
                 onKeyDown={(e) => e.key === 'Enter' && applyQuick()}
                 placeholder='Quick set: "35" · "45, 35, 50" · "User A: 45, User B: 35"'
-                className={`w-full px-3 py-1.5 text-xs bg-zinc-800 border rounded-lg text-zinc-200 placeholder:text-zinc-600 focus:outline-none transition-colors ${
+                className={`w-full px-3 py-1.5 text-xs bg-zinc-800 border rounded-lg text-zinc-200 placeholder:text-zinc-500 focus:outline-none transition-colors ${
                   parseError ? 'border-red-600 focus:border-red-500' : 'border-zinc-700 focus:border-zinc-500'
                 }`}
               />
@@ -314,7 +314,7 @@ function WageConfigurator({
               return (
                 <div key={id} className="flex items-center gap-1.5 bg-zinc-800/60 border border-zinc-700/60 rounded-lg px-3 py-2">
                   <span className="text-xs text-zinc-400 flex-1 truncate">{label}</span>
-                  <span className="text-zinc-600 text-xs">€</span>
+                  <span className="text-zinc-500 text-xs">€</span>
                   <input
                     type="number"
                     min={1}
@@ -328,7 +328,7 @@ function WageConfigurator({
                     }
                     className="w-12 bg-transparent text-xs text-zinc-200 text-right focus:outline-none [appearance:textfield]"
                   />
-                  <span className="text-zinc-600 text-[10px]">/h</span>
+                  <span className="text-zinc-500 text-[10px]">/h</span>
                 </div>
               );
             })}
@@ -387,7 +387,7 @@ function SummaryCards({ waste }: { waste: TeamWaste }) {
           <div className={`absolute inset-0 bg-gradient-to-br ${c.bg} via-transparent to-transparent pointer-events-none`} />
           <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">{c.label}</p>
           <p className={`text-2xl font-bold tabular-nums ${c.color}`}>{c.value}</p>
-          <p className="text-[10px] text-zinc-600 mt-0.5">{c.sub}</p>
+          <p className="text-[10px] text-zinc-500 mt-0.5">{c.sub}</p>
         </div>
       ))}
     </div>
@@ -429,11 +429,11 @@ function WasteBreakdown({ waste }: { waste: TeamWaste }) {
               <div className="flex justify-between text-xs">
                 <span className="text-zinc-300">
                   {r.label}
-                  <span className="text-zinc-600 ml-2 text-[10px]">{r.note}</span>
+                  <span className="text-zinc-500 ml-2 text-[10px]">{r.note}</span>
                 </span>
                 <span className="font-mono text-zinc-400 tabular-nums">
                   {fmt(r.value)}/day
-                  <span className="text-zinc-600 ml-1">({Math.round(pct)}%)</span>
+                  <span className="text-zinc-500 ml-1">({Math.round(pct)}%)</span>
                 </span>
               </div>
               <WasteBar value={r.value} max={waste.totalPerDay} color={r.color} />
@@ -590,13 +590,13 @@ function UserDrillDown({
                     {act.context_switch_count > 0 && (
                       <span className="text-orange-500/80 font-mono">{act.context_switch_count} sw</span>
                     )}
-                    <span className="text-zinc-600 font-mono">{fmt(wasteScore)}</span>
+                    <span className="text-zinc-500 font-mono">{fmt(wasteScore)}</span>
                   </div>
                 </div>
               );
             })}
             {myActivities.length === 0 && (
-              <p className="text-xs text-zinc-600">No activity data for this user.</p>
+              <p className="text-xs text-zinc-500">No activity data for this user.</p>
             )}
           </div>
         </div>
@@ -607,10 +607,10 @@ function UserDrillDown({
           <div className="space-y-2">
             {myBottlenecks.map((bn, i) => (
               <div key={i} className="flex items-center gap-2 text-xs">
-                <span className="text-zinc-600 flex-shrink-0 font-mono w-4">{i + 1}.</span>
+                <span className="text-zinc-500 flex-shrink-0 font-mono w-4">{i + 1}.</span>
                 <span className="text-zinc-400 truncate flex-1">
                   {bn.from_activity.slice(0, 18)}{bn.from_activity.length > 18 ? '…' : ''}
-                  <span className="text-zinc-600 mx-1">→</span>
+                  <span className="text-zinc-500 mx-1">→</span>
                   {bn.to_activity.slice(0, 18)}{bn.to_activity.length > 18 ? '…' : ''}
                 </span>
                 <span className="text-red-400 font-mono flex-shrink-0">
@@ -619,7 +619,7 @@ function UserDrillDown({
               </div>
             ))}
             {myBottlenecks.length === 0 && (
-              <p className="text-xs text-zinc-600">No bottlenecks linked to their activities.</p>
+              <p className="text-xs text-zinc-500">No bottlenecks linked to their activities.</p>
             )}
           </div>
         </div>
@@ -681,7 +681,7 @@ export function BusinessImpact({ pipeline, wages, onWagesChange }: BusinessImpac
         <UserDrillDown user={selectedWaste} pipeline={pipeline} wages={wages} />
       )}
 
-      <p className="text-[10px] text-zinc-600 px-1">
+      <p className="text-[10px] text-zinc-500 px-1">
         Waste estimates: bottleneck wait time from pipeline analysis · copy-paste overhead ~{COPY_PASTE_OVERHEAD_SECONDS}s/op ·
         context-switch re-focus ~{CONTEXT_SWITCH_COST_SECONDS}s/switch (Gloria Mark, UC Irvine) ·
         per-user share proportional to performer count on each activity

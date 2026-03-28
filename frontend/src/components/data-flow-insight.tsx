@@ -114,7 +114,7 @@ export function DataFlowInsight({ activities, copyPasteFlows }: DataFlowInsightP
               <div className="flex justify-between text-xs">
                 <span className="text-zinc-300">
                   <span style={{ color }}>{flow.from}</span>
-                  <span className="text-zinc-600 mx-1">{'\u2192'}</span>
+                  <span className="text-zinc-500 mx-1">{'\u2192'}</span>
                   <span className="text-zinc-400">{flow.to}</span>
                 </span>
                 <span className="text-zinc-300 font-mono">{flow.count.toLocaleString()}</span>

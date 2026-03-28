@@ -185,7 +185,7 @@ export function LiveMonitor({ pipeline, copilot }: LiveMonitorProps) {
         style={{ height: '480px' }}
       >
         {visible.length === 0 && (
-          <div className="flex items-center justify-center h-full text-zinc-600">
+          <div className="flex items-center justify-center h-full text-zinc-500">
             <span className="animate-pulse">Initializing process monitor...</span>
           </div>
         )}
@@ -195,7 +195,7 @@ export function LiveMonitor({ pipeline, copilot }: LiveMonitorProps) {
             className="flex items-start gap-3 px-4 py-3 border-b border-zinc-900 animate-in fade-in slide-in-from-bottom-2"
             style={{ animationDelay: `${i * 50}ms`, animationFillMode: 'backwards' }}
           >
-            <span className="text-zinc-600 whitespace-nowrap flex-shrink-0 pt-0.5">
+            <span className="text-zinc-500 whitespace-nowrap flex-shrink-0 pt-0.5">
               {alert.timestamp}
             </span>
             <span className="flex-shrink-0 pt-0.5 w-4 text-center">
@@ -210,13 +210,13 @@ export function LiveMonitor({ pipeline, copilot }: LiveMonitorProps) {
           </div>
         ))}
         {isPlaying && visibleCount > 0 && (
-          <div className="px-4 py-3 text-zinc-600 animate-pulse">
+          <div className="px-4 py-3 text-zinc-500 animate-pulse">
             Monitoring...
           </div>
         )}
       </div>
 
-      <div className="flex items-center gap-4 text-xs text-zinc-600">
+      <div className="flex items-center gap-4 text-xs text-zinc-500">
         <span>{visibleCount} / {allAlerts.length} alerts</span>
         {!isPlaying && visibleCount >= allAlerts.length && (
           <span className="text-green-500">Stream complete</span>

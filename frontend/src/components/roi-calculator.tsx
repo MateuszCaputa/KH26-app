@@ -73,7 +73,7 @@ export function RoiCalculator({ recommendations, pipeline }: RoiCalculatorProps)
               className="w-full h-1.5 bg-zinc-700 rounded-full appearance-none cursor-pointer accent-blue-500"
               aria-label="Hourly rate slider"
             />
-            <div className="flex justify-between text-[10px] text-zinc-600 mt-1">
+            <div className="flex justify-between text-[10px] text-zinc-500 mt-1">
               <span>$10</span>
               <span>$100</span>
             </div>
@@ -97,7 +97,7 @@ export function RoiCalculator({ recommendations, pipeline }: RoiCalculatorProps)
               className="w-full h-1.5 bg-zinc-700 rounded-full appearance-none cursor-pointer accent-blue-500"
               aria-label="Monthly cases slider"
             />
-            <div className="flex justify-between text-[10px] text-zinc-600 mt-1">
+            <div className="flex justify-between text-[10px] text-zinc-500 mt-1">
               <span>{Math.max(1, Math.floor(pipeline.statistics.total_cases / 10)).toLocaleString()}</span>
               <span>{(pipeline.statistics.total_cases * 5).toLocaleString()}</span>
             </div>
