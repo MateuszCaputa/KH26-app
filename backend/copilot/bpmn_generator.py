@@ -1,4 +1,4 @@
-"""BPMN 2.0 XML generator with color-coded insights from process analysis."""
+"""BPMN 2.0 XML generator with XOR gateways derived from the process map graph."""
 
 import re
 import xml.etree.ElementTree as ET
@@ -13,85 +13,432 @@ DC_NS = "http://www.omg.org/spec/DD/20100524/DC"
 DI_NS = "http://www.omg.org/spec/DD/20100524/DI"
 BIOC_NS = "http://bpmn.io/schema/bpmn/biocolor/1.0"
 
-TASK_WIDTH = 160
-TASK_HEIGHT = 72
-TASK_H_GAP = 60
-TASK_V_GAP = 90
-START_X = 60
-START_Y = 80
-EVENT_SIZE = 36
-MAX_PER_ROW = 4
-MAX_TASKS = 12
+TASK_W = 140
+TASK_H = 60
+COL_STEP = 200   # horizontal distance between column centres
+ROW_STEP = 110   # vertical distance between rows (lanes)
+GW_SIZE = 40
+EVT_SIZE = 36
+ORIGIN_X = 60
+ORIGIN_Y = 100
 
-# Color palette: fill, stroke
+MAX_NODES = 10   # max activities to include
+MAX_SPLITS = 3   # max XOR-split gateways
+
 COLOR_AUTOMATION = {"fill": "#dcfce7", "stroke": "#16a34a"}
 COLOR_BOTTLENECK = {"fill": "#fff1f2", "stroke": "#e11d48"}
 COLOR_COPY_PASTE = {"fill": "#eff6ff", "stroke": "#2563eb"}
 COLOR_DEFAULT = {"fill": "#f8fafc", "stroke": "#64748b"}
 COLOR_START = {"fill": "#dcfce7", "stroke": "#16a34a"}
 COLOR_END = {"fill": "#fef2f2", "stroke": "#dc2626"}
+COLOR_GATEWAY = {"fill": "#fefce8", "stroke": "#ca8a04"}
 
+
+# ---------------------------------------------------------------------------
+# Public entry point
+# ---------------------------------------------------------------------------
 
 def generate_bpmn(
     pipeline_output: PipelineOutput,
     recommendations: list[Recommendation] | None = None,
 ) -> str:
-    """Generate BPMN 2.0 XML with color-coded automation and bottleneck insights."""
-    sequence = _extract_sequence(pipeline_output)
+    """Generate BPMN 2.0 XML with XOR gateways from the process map graph."""
     color_map = _build_color_map(pipeline_output, recommendations or [])
     task_type_map = _build_task_type_map(pipeline_output, recommendations or [])
     activity_metrics = _build_activity_metrics(pipeline_output)
-    gateway_points = _find_gateway_points(pipeline_output, sequence)
-    return _build_bpmn_xml(
-        sequence, pipeline_output.process_id, color_map, task_type_map,
-        activity_metrics, gateway_points,
+
+    pm = pipeline_output.process_map
+    if pm and pm.edges and len(pm.nodes) >= 3:
+        return _build_graph_bpmn(
+            pipeline_output, color_map, task_type_map, activity_metrics
+        )
+
+    # Fallback: simple linear sequence
+    sequence = _extract_sequence(pipeline_output)
+    return _build_linear_bpmn(
+        sequence, pipeline_output.process_id, color_map, task_type_map, activity_metrics
     )
 
 
-# --- Sequence extraction ---
+# ---------------------------------------------------------------------------
+# Graph-based BPMN (main path)
+# ---------------------------------------------------------------------------
+
+def _build_graph_bpmn(
+    pipeline_output: PipelineOutput,
+    color_map: dict,
+    task_type_map: dict,
+    activity_metrics: dict,
+) -> str:
+    pm = pipeline_output.process_id
+    process_id = pipeline_output.process_id
+
+    label_map = {n.id: n.label for n in pipeline_output.process_map.nodes}
+    freq_map = {n.id: (n.frequency or 0) for n in pipeline_output.process_map.nodes}
+
+    # --- 1. Filter to clean top-N nodes ---
+    clean_ids = [n.id for n in pipeline_output.process_map.nodes
+                 if _is_clean_name(label_map.get(n.id, n.id))]
+    top_ids = set(sorted(clean_ids, key=lambda x: freq_map.get(x, 0), reverse=True)[:MAX_NODES])
+
+    # --- 2. Build DAG (remove self-loops and back-edges) ---
+    out_adj: dict[str, list[tuple[str, int]]] = defaultdict(list)
+    in_adj: dict[str, list[tuple[str, int]]] = defaultdict(list)
+
+    for e in pipeline_output.process_map.edges:
+        if (e.source in top_ids and e.target in top_ids and e.source != e.target):
+            out_adj[e.source].append((e.target, int(e.weight or 1)))
+            in_adj[e.target].append((e.source, int(e.weight or 1)))
+
+    used = {n for n in top_ids if out_adj[n] or in_adj[n]}
+    if len(used) < 2:
+        return _build_linear_bpmn(
+            _extract_sequence(pipeline_output), process_id, color_map, task_type_map, activity_metrics
+        )
+
+    dag_edges = _remove_back_edges(used, out_adj)
+
+    out_dag: dict[str, list[tuple[str, int]]] = defaultdict(list)
+    in_dag: dict[str, list[tuple[str, int]]] = defaultdict(list)
+    for src, tgt, w in dag_edges:
+        out_dag[src].append((tgt, w))
+        in_dag[tgt].append((src, w))
+
+    # --- 3. Source / sink nodes ---
+    sources = sorted([n for n in used if not in_dag[n]], key=lambda n: -freq_map.get(n, 0))
+    sinks = sorted([n for n in used if not out_dag[n]], key=lambda n: freq_map.get(n, 0))
+    if not sources:
+        sources = [max(used, key=lambda n: freq_map.get(n, 0))]
+    if not sinks:
+        sinks = [min(used, key=lambda n: freq_map.get(n, 0))]
+
+    # --- 4. Identify split / join nodes ---
+    split_nodes = sorted(
+        [n for n in used if len(out_dag[n]) > 1],
+        key=lambda n: -freq_map.get(n, 0),
+    )[:MAX_SPLITS]
+    join_nodes = [n for n in used if len(in_dag[n]) > 1]
+
+    split_gw: dict[str, str] = {n: f"gw_s_{_sid(n)}" for n in split_nodes}
+    join_gw: dict[str, str] = {n: f"gw_j_{_sid(n)}" for n in join_nodes}
+
+    # --- 5. Build BPMN flow list ---
+    START = "ev_start"
+    END = "ev_end"
+    flows: list[tuple[str, str]] = []
+
+    # start → first source
+    flows.append((START, join_gw.get(sources[0], sources[0])))
+
+    # Internal edges (routed through gateways)
+    added_task_to_split: set[str] = set()
+    added_join_to_task: set[str] = set()
+
+    for src, tgt, _w in dag_edges:
+        actual_src = split_gw[src] if src in split_gw else src
+        actual_tgt = join_gw[tgt] if tgt in join_gw else tgt
+
+        if src in split_gw and src not in added_task_to_split:
+            flows.append((src, split_gw[src]))
+            added_task_to_split.add(src)
+        if tgt in join_gw and tgt not in added_join_to_task:
+            flows.append((join_gw[tgt], tgt))
+            added_join_to_task.add(tgt)
+
+        flows.append((actual_src, actual_tgt))
+
+    # last sink → end
+    last_sink = sinks[0]
+    flows.append((split_gw.get(last_sink, last_sink), END))
+
+    # Remove duplicate flows
+    seen_flows: set[tuple[str, str]] = set()
+    unique_flows: list[tuple[str, str]] = []
+    for f in flows:
+        if f not in seen_flows and f[0] != f[1]:
+            seen_flows.add(f)
+            unique_flows.append(f)
+    flows = unique_flows
+
+    # --- 6. Collect all BPMN element IDs and types ---
+    element_type: dict[str, str] = {START: "startEvent", END: "endEvent"}
+    for n in used:
+        lbl = label_map.get(n, n)
+        element_type[n] = task_type_map.get(lbl, "userTask")
+    for gw_id in list(split_gw.values()) + list(join_gw.values()):
+        element_type[gw_id] = "exclusiveGateway"
+
+    # --- 7. Layout ---
+    positions = _compute_layout(element_type, flows, START, END, freq_map, split_gw, join_gw)
+
+    # --- 8. Assemble XML ---
+    return _assemble_xml(
+        process_id, element_type, flows, positions,
+        label_map, color_map, activity_metrics, START, END,
+    )
+
+
+# ---------------------------------------------------------------------------
+# DAG helpers
+# ---------------------------------------------------------------------------
+
+def _remove_back_edges(
+    nodes: set[str],
+    out_adj: dict[str, list[tuple[str, int]]],
+) -> list[tuple[str, int, int]]:
+    """Return edges with back-edges removed (DFS coloring)."""
+    WHITE, GRAY, BLACK = 0, 1, 2
+    color: dict[str, int] = {n: WHITE for n in nodes}
+    result: list[tuple[str, int, int]] = []
+
+    def dfs(u: str) -> None:
+        color[u] = GRAY
+        for v, w in sorted(out_adj[u], key=lambda x: -x[1]):
+            if v not in color:
+                continue
+            if color[v] == GRAY:
+                continue  # back-edge — skip
+            result.append((u, v, w))
+            if color[v] == WHITE:
+                dfs(v)
+        color[u] = BLACK
+
+    for n in nodes:
+        if color[n] == WHITE:
+            dfs(n)
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Layout
+# ---------------------------------------------------------------------------
+
+def _compute_layout(
+    element_type: dict[str, str],
+    flows: list[tuple[str, str]],
+    start_id: str,
+    end_id: str,
+    freq_map: dict[str, int],
+    split_gw: dict[str, str],
+    join_gw: dict[str, str],
+) -> dict[str, tuple[float, float, float, float]]:
+    """Returns {id: (x, y, width, height)} for every element."""
+
+    out_flow: dict[str, list[str]] = defaultdict(list)
+    in_flow: dict[str, list[str]] = defaultdict(list)
+    for src, tgt in flows:
+        out_flow[src].append(tgt)
+        in_flow[tgt].append(src)
+
+    # --- Assign column levels (longest path from start) ---
+    col: dict[str, int] = {start_id: 0}
+    queue: deque[str] = deque([start_id])
+    while queue:
+        nid = queue.popleft()
+        for tgt in out_flow[nid]:
+            new_c = col[nid] + 1
+            if col.get(tgt, -1) < new_c:
+                col[tgt] = new_c
+                queue.append(tgt)
+
+    for eid in element_type:
+        if eid not in col:
+            col[eid] = max(col.values(), default=0) + 1
+
+    max_col = max(col.values(), default=0)
+
+    # --- Find main path (follow highest-freq edges) ---
+    gw_ids = set(split_gw.values()) | set(join_gw.values())
+    main_path = _find_main_path(start_id, end_id, out_flow, freq_map, gw_ids)
+    main_set = set(main_path)
+
+    # --- Assign rows within each column ---
+    col_groups: dict[int, list[str]] = defaultdict(list)
+    for eid, c in col.items():
+        col_groups[c].append(eid)
+
+    row: dict[str, int] = {}
+    for c, elems in col_groups.items():
+        ordered = sorted(
+            elems,
+            key=lambda e: (0 if e in main_set else 1, -freq_map.get(e, 0)),
+        )
+        for i, eid in enumerate(ordered):
+            row[eid] = i
+
+    # --- Convert to (x, y, w, h) ---
+    def dims(eid: str) -> tuple[float, float]:
+        et = element_type.get(eid, "userTask")
+        if et in ("startEvent", "endEvent"):
+            return EVT_SIZE, EVT_SIZE
+        if et == "exclusiveGateway":
+            return GW_SIZE, GW_SIZE
+        return TASK_W, TASK_H
+
+    positions: dict[str, tuple[float, float, float, float]] = {}
+    for eid in element_type:
+        c = col.get(eid, 0)
+        r = row.get(eid, 0)
+        w, h = dims(eid)
+        x = ORIGIN_X + c * COL_STEP
+        y = ORIGIN_Y + r * ROW_STEP
+        positions[eid] = (x, y, w, h)
+
+    return positions
+
+
+def _find_main_path(
+    start: str,
+    end: str,
+    out_flow: dict[str, list[str]],
+    freq_map: dict[str, int],
+    gw_ids: set[str],
+) -> list[str]:
+    """Greedy main path: always follow highest-frequency successor."""
+    path = [start]
+    visited: set[str] = {start}
+    cur = start
+    for _ in range(50):
+        succs = [s for s in out_flow.get(cur, []) if s not in visited]
+        if not succs:
+            break
+        # Prefer non-gateway successors first; among ties pick highest freq
+        succs.sort(key=lambda s: (1 if s in gw_ids else 0, -freq_map.get(s, 0)))
+        nxt = succs[0]
+        path.append(nxt)
+        visited.add(nxt)
+        cur = nxt
+        if cur == end:
+            break
+    return path
+
+
+# ---------------------------------------------------------------------------
+# XML assembly
+# ---------------------------------------------------------------------------
+
+def _assemble_xml(
+    process_id: str,
+    element_type: dict[str, str],
+    flows: list[tuple[str, str]],
+    positions: dict[str, tuple[float, float, float, float]],
+    label_map: dict[str, str],
+    color_map: dict[str, dict],
+    activity_metrics: dict[str, str],
+    start_id: str,
+    end_id: str,
+) -> str:
+    ET.register_namespace("bpmn", BPMN_NS)
+    ET.register_namespace("bpmndi", BPMNDI_NS)
+    ET.register_namespace("dc", DC_NS)
+    ET.register_namespace("di", DI_NS)
+    ET.register_namespace("bioc", BIOC_NS)
+
+    defs = ET.Element(f"{{{BPMN_NS}}}definitions")
+    defs.set("id", f"def_{process_id}")
+    defs.set("targetNamespace", "http://bpmn.io/schema/bpmn")
+    defs.set("xmlns:bioc", BIOC_NS)
+
+    proc = ET.SubElement(defs, f"{{{BPMN_NS}}}process")
+    proc.set("id", f"proc_{process_id}")
+    proc.set("isExecutable", "true")
+
+    # Elements
+    for eid, etype in element_type.items():
+        el = ET.SubElement(proc, f"{{{BPMN_NS}}}{etype}")
+        el.set("id", eid)
+        if etype == "startEvent":
+            el.set("name", "Start")
+        elif etype == "endEvent":
+            el.set("name", "End")
+        elif etype == "exclusiveGateway":
+            el.set("name", "")
+        else:
+            raw_label = label_map.get(eid, eid)
+            label = raw_label[:40]
+            metric = activity_metrics.get(raw_label, "")
+            if metric:
+                label = f"{label}\n[{metric}]"
+            el.set("name", label)
+
+    # Sequence flows
+    for i, (src, tgt) in enumerate(flows, start=1):
+        sf = ET.SubElement(proc, f"{{{BPMN_NS}}}sequenceFlow")
+        sf.set("id", f"sf_{i}")
+        sf.set("sourceRef", src)
+        sf.set("targetRef", tgt)
+
+    # DI
+    diag = ET.SubElement(defs, f"{{{BPMNDI_NS}}}BPMNDiagram")
+    diag.set("id", "diag_1")
+    plane = ET.SubElement(diag, f"{{{BPMNDI_NS}}}BPMNPlane")
+    plane.set("id", "plane_1")
+    plane.set("bpmnElement", f"proc_{process_id}")
+
+    for eid, (x, y, w, h) in positions.items():
+        etype = element_type.get(eid, "userTask")
+        raw_label = label_map.get(eid, eid)
+        if etype == "exclusiveGateway":
+            colors = COLOR_GATEWAY
+        elif etype == "startEvent":
+            colors = COLOR_START
+        elif etype == "endEvent":
+            colors = COLOR_END
+        else:
+            colors = color_map.get(raw_label, COLOR_DEFAULT)
+        _add_shape(plane, eid, x, y, w, h, colors,
+                   is_marker=(etype == "exclusiveGateway"))
+
+    for i, (src, tgt) in enumerate(flows, start=1):
+        if src in positions and tgt in positions:
+            sx, sy, sw, sh = positions[src]
+            tx, ty, tw, th = positions[tgt]
+            _add_edge(plane, f"sf_{i}", src, tgt,
+                      (sx, sy), sw, sh, (tx, ty), tw, th)
+
+    return _pretty_print(ET.tostring(defs, encoding="unicode"))
+
+
+# ---------------------------------------------------------------------------
+# Fallback: linear sequence (unchanged behaviour when no graph data)
+# ---------------------------------------------------------------------------
 
 def _extract_sequence(pipeline_output: PipelineOutput) -> list[str]:
-    """Extract main activity sequence: process map topology → top variant → activities."""
-    if pipeline_output.process_map and pipeline_output.process_map.edges:
+    MAX_TASKS = 12
+    pm = pipeline_output.process_map
+    if pm and pm.edges:
         seq = _topological_sequence(pipeline_output)
         if len(seq) >= 3:
             return seq[:MAX_TASKS]
-
     if pipeline_output.variants:
         best = max(pipeline_output.variants, key=lambda v: v.case_count)
         seen: set[str] = set()
         clean = [s for s in best.sequence if s not in seen and not seen.add(s) and _is_clean_name(s)]  # type: ignore[func-returns-value]
         if len(clean) >= 3:
             return clean[:MAX_TASKS]
-
     if pipeline_output.activities:
         by_freq = sorted(pipeline_output.activities, key=lambda a: a.frequency, reverse=True)
         clean = [a.name for a in by_freq if _is_clean_name(a.name)]
         if len(clean) >= 3:
             return clean[:MAX_TASKS]
-
     return ["Start Process", "Process Step", "Complete"]
 
 
 def _topological_sequence(pipeline_output: PipelineOutput) -> list[str]:
-    """Walk the process map in topological order, following highest-weight edges."""
     pm = pipeline_output.process_map
     node_labels = {n.id: n.label for n in pm.nodes}
-
     outgoing: dict[str, list[tuple[str, int]]] = defaultdict(list)
     in_degree: dict[str, int] = defaultdict(int)
     for edge in pm.edges:
         outgoing[edge.source].append((edge.target, edge.weight))
         in_degree[edge.target] += 1
-
     roots = [nid for nid in node_labels if in_degree[nid] == 0]
     if not roots:
         roots = [max(node_labels, key=lambda n: len(outgoing[n]))]
-
     queue: deque[str] = deque(roots)
     visited: set[str] = set()
     result: list[str] = []
-
     while queue:
         nid = queue.popleft()
         if nid in visited:
@@ -103,17 +450,118 @@ def _topological_sequence(pipeline_output: PipelineOutput) -> list[str]:
         for child_id, _ in sorted(outgoing[nid], key=lambda x: x[1], reverse=True):
             if child_id not in visited:
                 queue.append(child_id)
-
     return result
 
 
-# --- Color and type mapping ---
+def _build_linear_bpmn(
+    sequence: list[str],
+    process_id: str,
+    color_map: dict,
+    task_type_map: dict,
+    activity_metrics: dict,
+) -> str:
+    """Simple linear BPMN: Start → task1 → … → End."""
+    MAX_TASKS = 12
+    TASK_WIDTH = 160
+    TASK_HEIGHT = 72
+    H_GAP_LIN = 60
+    MAX_PER_ROW = 4
+    START_X, START_Y = 60, 80
+
+    ET.register_namespace("bpmn", BPMN_NS)
+    ET.register_namespace("bpmndi", BPMNDI_NS)
+    ET.register_namespace("dc", DC_NS)
+    ET.register_namespace("di", DI_NS)
+    ET.register_namespace("bioc", BIOC_NS)
+
+    defs = ET.Element(f"{{{BPMN_NS}}}definitions")
+    defs.set("id", f"def_{process_id}")
+    defs.set("targetNamespace", "http://bpmn.io/schema/bpmn")
+    defs.set("xmlns:bioc", BIOC_NS)
+
+    proc = ET.SubElement(defs, f"{{{BPMN_NS}}}process")
+    proc.set("id", f"proc_{process_id}")
+    proc.set("isExecutable", "true")
+
+    start_el = ET.SubElement(proc, f"{{{BPMN_NS}}}startEvent")
+    start_el.set("id", "ev_start")
+    start_el.set("name", "Start")
+
+    task_ids: list[tuple[str, str]] = []
+    for name in sequence[:MAX_TASKS]:
+        tid = _sanitize_id(name)
+        ttype = task_type_map.get(name, "userTask")
+        el = ET.SubElement(proc, f"{{{BPMN_NS}}}{ttype}")
+        el.set("id", tid)
+        label = name[:45]
+        metric = activity_metrics.get(name)
+        if metric:
+            label = f"{label}\n[{metric}]"
+        el.set("name", label)
+        task_ids.append((tid, name))
+
+    end_el = ET.SubElement(proc, f"{{{BPMN_NS}}}endEvent")
+    end_el.set("id", "ev_end")
+    end_el.set("name", "End")
+
+    all_ids = ["ev_start"] + [tid for tid, _ in task_ids] + ["ev_end"]
+    for i in range(len(all_ids) - 1):
+        sf = ET.SubElement(proc, f"{{{BPMN_NS}}}sequenceFlow")
+        sf.set("id", f"sf_{i + 1}")
+        sf.set("sourceRef", all_ids[i])
+        sf.set("targetRef", all_ids[i + 1])
+
+    # DI
+    diag = ET.SubElement(defs, f"{{{BPMNDI_NS}}}BPMNDiagram")
+    diag.set("id", "diag_1")
+    plane = ET.SubElement(diag, f"{{{BPMNDI_NS}}}BPMNPlane")
+    plane.set("id", "plane_1")
+    plane.set("bpmnElement", f"proc_{process_id}")
+
+    def grid_xy(idx: int) -> tuple[float, float]:
+        row = idx // MAX_PER_ROW
+        col = idx % MAX_PER_ROW
+        x = START_X + EVT_SIZE + H_GAP_LIN + col * (TASK_WIDTH + H_GAP_LIN)
+        y = START_Y + row * (TASK_HEIGHT + 90)
+        return x, y
+
+    fx, fy = grid_xy(0)
+    _add_shape(plane, "ev_start", fx - H_GAP_LIN - EVT_SIZE,
+               fy + (TASK_HEIGHT - EVT_SIZE) / 2, EVT_SIZE, EVT_SIZE, COLOR_START)
+
+    for i, (tid, name) in enumerate(task_ids):
+        tx, ty = grid_xy(i)
+        _add_shape(plane, tid, tx, ty, TASK_WIDTH, TASK_HEIGHT, color_map.get(name, COLOR_DEFAULT))
+
+    n = len(task_ids)
+    ex, ey = grid_xy(n)
+    _add_shape(plane, "ev_end", ex, ey + (TASK_HEIGHT - EVT_SIZE) / 2, EVT_SIZE, EVT_SIZE, COLOR_END)
+
+    positions_lin: dict[str, tuple[float, float, float, float]] = {
+        "ev_start": (fx - H_GAP_LIN - EVT_SIZE, fy + (TASK_HEIGHT - EVT_SIZE) / 2, EVT_SIZE, EVT_SIZE),
+        "ev_end": (ex, ey + (TASK_HEIGHT - EVT_SIZE) / 2, EVT_SIZE, EVT_SIZE),
+    }
+    for i, (tid, _) in enumerate(task_ids):
+        tx, ty = grid_xy(i)
+        positions_lin[tid] = (tx, ty, TASK_WIDTH, TASK_HEIGHT)
+
+    for i in range(len(all_ids) - 1):
+        s, t = all_ids[i], all_ids[i + 1]
+        sx, sy, sw, sh = positions_lin[s]
+        tx, ty, tw, th = positions_lin[t]
+        _add_edge(plane, f"sf_{i + 1}", s, t, (sx, sy), sw, sh, (tx, ty), tw, th)
+
+    return _pretty_print(ET.tostring(defs, encoding="unicode"))
+
+
+# ---------------------------------------------------------------------------
+# Color / type / metrics helpers (unchanged)
+# ---------------------------------------------------------------------------
 
 def _build_color_map(
     pipeline_output: PipelineOutput,
     recommendations: list[Recommendation],
 ) -> dict[str, dict[str, str]]:
-    """Assign colors to activities based on analysis insights."""
     automation_targets = {
         rec.target.lower()
         for rec in recommendations
@@ -124,13 +572,11 @@ def _build_color_map(
         if b.severity in ("critical", "high"):
             bottleneck_activities.add(b.from_activity.lower())
             bottleneck_activities.add(b.to_activity.lower())
-
     copy_paste_activities = {
         act.name.lower()
         for act in pipeline_output.activities
         if act.copy_paste_count and act.copy_paste_count > 2
     }
-
     color_map: dict[str, dict[str, str]] = {}
     for act in pipeline_output.activities:
         name_lower = act.name.lower()
@@ -149,7 +595,6 @@ def _build_task_type_map(
     pipeline_output: PipelineOutput,
     recommendations: list[Recommendation],
 ) -> dict[str, str]:
-    """Map activity names to BPMN task element types."""
     automation_targets = {
         rec.target.lower()
         for rec in recommendations
@@ -167,7 +612,6 @@ def _build_task_type_map(
 
 
 def _build_activity_metrics(pipeline_output: PipelineOutput) -> dict[str, str]:
-    """Build per-activity metric annotations for BPMN task labels."""
     metrics: dict[str, str] = {}
     for act in pipeline_output.activities:
         parts = []
@@ -181,234 +625,14 @@ def _build_activity_metrics(pipeline_output: PipelineOutput) -> dict[str, str]:
                 parts.append(f"{dur / 3600:.1f}h avg")
         parts.append(f"×{act.frequency}")
         if act.copy_paste_count > 0:
-            parts.append(f"📋{act.copy_paste_count}")
+            parts.append(f"CP:{act.copy_paste_count}")
         metrics[act.name] = " · ".join(parts)
     return metrics
 
 
-def _find_gateway_points(
-    pipeline_output: PipelineOutput, sequence: list[str],
-) -> list[tuple[int, list[str]]]:
-    """Find points in the sequence where top variants diverge.
-
-    Returns list of (index_after_which_to_insert_gateway, [branch_target_names]).
-    """
-    if len(pipeline_output.variants) < 2 or len(sequence) < 3:
-        return []
-
-    sorted_variants = sorted(pipeline_output.variants, key=lambda v: v.case_count, reverse=True)[:3]
-    top_seq = sorted_variants[0].sequence
-
-    gateways: list[tuple[int, list[str]]] = []
-    seq_set = set(sequence)
-
-    for i, step in enumerate(sequence[:-1]):
-        if step not in top_seq:
-            continue
-        idx_in_top = -1
-        for j, s in enumerate(top_seq):
-            if s == step:
-                idx_in_top = j
-                break
-        if idx_in_top < 0 or idx_in_top >= len(top_seq) - 1:
-            continue
-
-        next_in_top = top_seq[idx_in_top + 1]
-        branches: set[str] = set()
-        for var in sorted_variants[1:]:
-            if step not in var.sequence:
-                continue
-            var_idx = var.sequence.index(step)
-            if var_idx < len(var.sequence) - 1:
-                alt = var.sequence[var_idx + 1]
-                if alt != next_in_top and alt in seq_set:
-                    branches.add(alt)
-
-        if branches:
-            gateways.append((i, list(branches)[:2]))
-            break  # one gateway is enough for demo
-
-    return gateways
-
-
-# --- BPMN XML construction ---
-
-def _build_bpmn_xml(
-    sequence: list[str],
-    process_id: str,
-    color_map: dict[str, dict[str, str]],
-    task_type_map: dict[str, str],
-    activity_metrics: dict[str, str] | None = None,
-    gateway_points: list[tuple[int, list[str]]] | None = None,
-) -> str:
-    """Build complete BPMN 2.0 XML with DI layout and bioc color annotations."""
-    ET.register_namespace("bpmn", BPMN_NS)
-    ET.register_namespace("bpmndi", BPMNDI_NS)
-    ET.register_namespace("dc", DC_NS)
-    ET.register_namespace("di", DI_NS)
-    ET.register_namespace("bioc", BIOC_NS)
-
-    definitions = ET.Element(f"{{{BPMN_NS}}}definitions")
-    definitions.set("id", f"def_{process_id}")
-    definitions.set("targetNamespace", "http://bpmn.io/schema/bpmn")
-    definitions.set("xmlns:bioc", BIOC_NS)
-
-    process_elem = ET.SubElement(definitions, f"{{{BPMN_NS}}}process")
-    process_elem.set("id", f"proc_{process_id}")
-    process_elem.set("isExecutable", "true")
-
-    activity_metrics = activity_metrics or {}
-    gateway_points = gateway_points or []
-
-    start_id = "ev_start"
-    start_el = ET.SubElement(process_elem, f"{{{BPMN_NS}}}startEvent")
-    start_el.set("id", start_id)
-    start_el.set("name", "Start")
-
-    task_ids: list[tuple[str, str]] = []
-    for name in sequence:
-        tid = _sanitize_id(name)
-        ttype = task_type_map.get(name, "userTask")
-        task_el = ET.SubElement(process_elem, f"{{{BPMN_NS}}}{ttype}")
-        task_el.set("id", tid)
-        label = name[:45]
-        metric = activity_metrics.get(name)
-        if metric:
-            label = f"{label}\n[{metric}]"
-        task_el.set("name", label)
-        task_ids.append((tid, name))
-
-    # Add XOR gateways
-    gateway_ids: dict[int, str] = {}
-    for seq_idx, branches in gateway_points:
-        gw_id = f"gw_xor_{seq_idx}"
-        gw_el = ET.SubElement(process_elem, f"{{{BPMN_NS}}}exclusiveGateway")
-        gw_el.set("id", gw_id)
-        gw_el.set("name", "")
-        gateway_ids[seq_idx] = gw_id
-
-    end_id = "ev_end"
-    end_el = ET.SubElement(process_elem, f"{{{BPMN_NS}}}endEvent")
-    end_el.set("id", end_id)
-    end_el.set("name", "End")
-
-    # Build flow — insert gateways where divergence is found
-    all_ids = [start_id] + [tid for tid, _ in task_ids] + [end_id]
-
-    # Insert gateway IDs after their respective task indices
-    gw_insert_offsets: dict[int, str] = {}
-    for seq_idx, gw_id in gateway_ids.items():
-        # gateway goes after task at seq_idx (offset by 1 for start event)
-        insert_pos = seq_idx + 2  # +1 for start, +1 for after
-        gw_insert_offsets[insert_pos] = gw_id
-
-    expanded_ids: list[str] = []
-    for i, eid in enumerate(all_ids):
-        expanded_ids.append(eid)
-        if i in gw_insert_offsets:
-            expanded_ids.append(gw_insert_offsets[i])
-
-    flow_idx = 0
-    for i in range(len(expanded_ids) - 1):
-        flow_idx += 1
-        sf = ET.SubElement(process_elem, f"{{{BPMN_NS}}}sequenceFlow")
-        sf.set("id", f"sf_{flow_idx}")
-        sf.set("sourceRef", expanded_ids[i])
-        sf.set("targetRef", expanded_ids[i + 1])
-
-    # DI
-    diagram = ET.SubElement(definitions, f"{{{BPMNDI_NS}}}BPMNDiagram")
-    diagram.set("id", "diag_1")
-    plane = ET.SubElement(diagram, f"{{{BPMNDI_NS}}}BPMNPlane")
-    plane.set("id", "plane_1")
-    plane.set("bpmnElement", f"proc_{process_id}")
-
-    positions = _compute_positions(task_ids, start_id, end_id)
-
-    # Add gateway positions (between task and next task)
-    gw_size = 42
-    for seq_idx, gw_id in gateway_ids.items():
-        task_id = task_ids[seq_idx][0]
-        tx, ty = positions[task_id]
-        # Place gateway to the right of the task, centered vertically
-        positions[gw_id] = (tx + TASK_WIDTH + TASK_H_GAP // 2 - gw_size // 2, ty + (TASK_HEIGHT - gw_size) // 2)
-
-    # Shapes
-    sx, sy = positions[start_id]
-    _add_shape(plane, start_id, sx, sy, EVENT_SIZE, EVENT_SIZE, colors=COLOR_START)
-
-    for tid, name in task_ids:
-        tx, ty = positions[tid]
-        _add_shape(plane, tid, tx, ty, TASK_WIDTH, TASK_HEIGHT, colors=color_map.get(name, COLOR_DEFAULT))
-
-    for gw_id in gateway_ids.values():
-        gx, gy = positions[gw_id]
-        _add_shape(plane, gw_id, gx, gy, gw_size, gw_size)
-
-    ex, ey = positions[end_id]
-    _add_shape(plane, end_id, ex, ey, EVENT_SIZE, EVENT_SIZE, colors=COLOR_END)
-
-    # Edges
-    all_positioned = expanded_ids
-    flow_idx_di = 0
-    for i in range(len(all_positioned) - 1):
-        flow_idx_di += 1
-        src, tgt = all_positioned[i], all_positioned[i + 1]
-        sw = _element_size(src, start_id, end_id, gateway_ids)[0]
-        sh = _element_size(src, start_id, end_id, gateway_ids)[1]
-        tw = _element_size(tgt, start_id, end_id, gateway_ids)[0]
-        th = _element_size(tgt, start_id, end_id, gateway_ids)[1]
-        _add_edge(plane, f"sf_{flow_idx_di}", src, tgt, positions[src], sw, sh, positions[tgt], tw, th)
-
-    return _pretty_print(ET.tostring(definitions, encoding="unicode"))
-
-
-# --- Layout ---
-
-def _grid_xy(index: int) -> tuple[float, float]:
-    """Return top-left (x, y) for task at grid index."""
-    row = index // MAX_PER_ROW
-    col = index % MAX_PER_ROW
-    x = START_X + EVENT_SIZE + TASK_H_GAP + col * (TASK_WIDTH + TASK_H_GAP)
-    y = START_Y + row * (TASK_HEIGHT + TASK_V_GAP)
-    return (x, y)
-
-
-def _compute_positions(
-    task_ids: list[tuple[str, str]],
-    start_id: str,
-    end_id: str,
-) -> dict[str, tuple[float, float]]:
-    positions: dict[str, tuple[float, float]] = {}
-
-    first_x, first_y = _grid_xy(0)
-    positions[start_id] = (
-        first_x - TASK_H_GAP - EVENT_SIZE,
-        first_y + (TASK_HEIGHT - EVENT_SIZE) / 2,
-    )
-
-    for i, (tid, _) in enumerate(task_ids):
-        positions[tid] = _grid_xy(i)
-
-    n = len(task_ids)
-    ex, ey = _grid_xy(n)
-    positions[end_id] = (ex, ey + (TASK_HEIGHT - EVENT_SIZE) / 2)
-
-    return positions
-
-
-def _element_size(
-    eid: str, start_id: str, end_id: str, gateway_ids: dict[int, str],
-) -> tuple[float, float]:
-    """Return (width, height) for any element type."""
-    if eid == start_id or eid == end_id:
-        return (EVENT_SIZE, EVENT_SIZE)
-    if eid in gateway_ids.values():
-        return (42, 42)
-    return (TASK_WIDTH, TASK_HEIGHT)
-
-
-# --- Shapes and edges ---
+# ---------------------------------------------------------------------------
+# Shape / edge DI helpers
+# ---------------------------------------------------------------------------
 
 def _add_shape(
     plane: ET.Element,
@@ -418,10 +642,13 @@ def _add_shape(
     w: float,
     h: float,
     colors: dict[str, str] | None = None,
+    is_marker: bool = False,
 ) -> None:
     shape = ET.SubElement(plane, f"{{{BPMNDI_NS}}}BPMNShape")
     shape.set("id", f"s_{eid}")
     shape.set("bpmnElement", eid)
+    if is_marker:
+        shape.set("isMarkerVisible", "true")
     if colors:
         shape.set("bioc:fill", colors["fill"])
         shape.set("bioc:stroke", colors["stroke"])
@@ -447,38 +674,31 @@ def _add_edge(
     edge = ET.SubElement(plane, f"{{{BPMNDI_NS}}}BPMNEdge")
     edge.set("id", f"e_{flow_id}")
     edge.set("bpmnElement", flow_id)
-
-    waypoints = _compute_waypoints(src_pos, src_w, src_h, tgt_pos, tgt_w, tgt_h)
-    for wx, wy in waypoints:
+    for wx, wy in _waypoints(src_pos, src_w, src_h, tgt_pos, tgt_w, tgt_h):
         wp = ET.SubElement(edge, f"{{{DI_NS}}}waypoint")
         wp.set("x", str(round(wx)))
         wp.set("y", str(round(wy)))
 
 
-def _compute_waypoints(
-    src_pos: tuple[float, float],
-    src_w: float,
-    src_h: float,
-    tgt_pos: tuple[float, float],
-    tgt_w: float,
-    tgt_h: float,
+def _waypoints(
+    sp: tuple[float, float], sw: float, sh: float,
+    tp: tuple[float, float], tw: float, th: float,
 ) -> list[tuple[float, float]]:
-    """Compute clean waypoints: straight for same row, elbow for row wrap."""
-    src_right = src_pos[0] + src_w
-    src_cy = src_pos[1] + src_h / 2
-    tgt_left = tgt_pos[0]
-    tgt_cy = tgt_pos[1] + tgt_h / 2
+    src_cx = sp[0] + sw / 2
+    src_cy = sp[1] + sh / 2
+    tgt_cx = tp[0] + tw / 2
+    tgt_cy = tp[1] + th / 2
+    src_right = sp[0] + sw
+    tgt_left = tp[0]
+    src_bottom = sp[1] + sh
+    tgt_top = tp[1]
 
-    # Same horizontal level → straight line
+    # Same row, target to the right → straight
     if abs(src_cy - tgt_cy) < 5 and tgt_left >= src_right - 2:
         return [(src_right, src_cy), (tgt_left, tgt_cy)]
 
-    # Target is lower (row wrap or end event below) → bottom-exit elbow
-    if tgt_cy > src_cy:
-        src_cx = src_pos[0] + src_w / 2
-        tgt_cx = tgt_pos[0] + tgt_w / 2
-        src_bottom = src_pos[1] + src_h
-        tgt_top = tgt_pos[1]
+    # Target below → exit from bottom, enter from top
+    if tgt_cy > src_cy + 5:
         mid_y = src_bottom + (tgt_top - src_bottom) / 2
         return [
             (src_cx, src_bottom),
@@ -487,11 +707,22 @@ def _compute_waypoints(
             (tgt_cx, tgt_top),
         ]
 
-    # Fallback: right-to-left direct
+    # Target above → exit from top, enter from bottom
+    if tgt_cy < src_cy - 5:
+        mid_y = tgt_top + (sp[1] - tgt_top) / 2
+        return [
+            (src_cx, sp[1]),
+            (src_cx, mid_y),
+            (tgt_cx, mid_y),
+            (tgt_cx, tgt_top + th),
+        ]
+
     return [(src_right, src_cy), (tgt_left, tgt_cy)]
 
 
-# --- Helpers ---
+# ---------------------------------------------------------------------------
+# ID helpers
+# ---------------------------------------------------------------------------
 
 def _is_clean_name(name: str) -> bool:
     if len(name) > 45:
@@ -513,6 +744,13 @@ def _sanitize_id(name: str, prefix: str = "task") -> str:
     s = re.sub(r"[^a-zA-Z0-9_-]", "_", name)
     s = re.sub(r"_+", "_", s).strip("_")
     return f"{prefix}_{s}"[:64]
+
+
+def _sid(name: str) -> str:
+    """Short sanitized ID (no prefix, max 24 chars)."""
+    s = re.sub(r"[^a-zA-Z0-9]", "_", name)
+    s = re.sub(r"_+", "_", s).strip("_")
+    return s[:24]
 
 
 def _pretty_print(xml_str: str) -> str:

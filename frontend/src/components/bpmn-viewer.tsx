@@ -100,33 +100,56 @@ function buildColorMap(
   return map;
 }
 
-function findGatewayPoint(pipeline: PipelineOutput, sequence: string[]): number {
-  if (pipeline.variants.length < 2 || sequence.length < 3) return -1;
-  const sorted = [...pipeline.variants].sort((a, b) => b.case_count - a.case_count);
-  const topSeq = sorted[0].sequence;
+function findGatewayIndices(pipeline: PipelineOutput, sequence: string[]): Set<number> {
+  const result = new Set<number>();
+  if (sequence.length < 3) return result;
+
+  // Build outgoing edge count from process_map
+  const outCount = new Map<string, number>();
+  if (pipeline.process_map?.edges) {
+    for (const edge of pipeline.process_map.edges) {
+      outCount.set(edge.source, (outCount.get(edge.source) ?? 0) + 1);
+    }
+  }
+
+  // Mark positions in sequence where a node has multiple outgoing edges (split point)
   for (let i = 0; i < sequence.length - 1; i++) {
     const step = sequence[i];
-    const idx = topSeq.indexOf(step);
-    if (idx < 0 || idx >= topSeq.length - 1) continue;
-    const nextInTop = topSeq[idx + 1];
-    for (const v of sorted.slice(1, 3)) {
-      const vi = v.sequence.indexOf(step);
-      if (vi >= 0 && vi < v.sequence.length - 1 && v.sequence[vi + 1] !== nextInTop) {
-        return i;
+    if ((outCount.get(step) ?? 0) > 1) {
+      result.add(i);
+    }
+  }
+
+  // Fallback: compare top variants if process_map gave nothing
+  if (result.size === 0 && pipeline.variants.length >= 2) {
+    const sorted = [...pipeline.variants].sort((a, b) => b.case_count - a.case_count);
+    const topSeq = sorted[0].sequence;
+    for (let i = 0; i < sequence.length - 1; i++) {
+      const step = sequence[i];
+      const idx = topSeq.indexOf(step);
+      if (idx < 0 || idx >= topSeq.length - 1) continue;
+      const nextInTop = topSeq[idx + 1];
+      for (const v of sorted.slice(1, 4)) {
+        const vi = v.sequence.indexOf(step);
+        if (vi >= 0 && vi < v.sequence.length - 1 && v.sequence[vi + 1] !== nextInTop) {
+          result.add(i);
+          break;
+        }
       }
     }
   }
-  return -1;
+
+  return result;
 }
 
 function buildNodes(sequence: string[], colorMap: Map<string, Variant>, pipeline: PipelineOutput): DiagramNode[] {
-  const gwIdx = findGatewayPoint(pipeline, sequence);
+  const gwIndices = findGatewayIndices(pipeline, sequence);
   const nodes: DiagramNode[] = [
     { id: '_start', label: 'Start', kind: 'start', variant: 'start' },
   ];
   for (let i = 0; i < sequence.length; i++) {
     nodes.push({ id: `t${i}`, label: sequence[i], kind: 'task', variant: colorMap.get(sequence[i]) ?? 'default' });
-    if (i === gwIdx) {
+    if (gwIndices.has(i)) {
       nodes.push({ id: `gw${i}`, label: 'XOR', kind: 'gateway', variant: 'default' });
     }
   }
