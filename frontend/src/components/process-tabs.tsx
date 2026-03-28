@@ -22,6 +22,7 @@ import { ActionCard } from './action-card';
 import { UserJourneyTimeline } from './user-journey-timeline';
 import { ExecutiveDashboard } from './executive-dashboard';
 import { BusinessIdInsight } from './business-id-insight';
+import { BottleneckInsight } from './bottleneck-insight';
 import type { PipelineOutput, CopilotOutput, ImpactLevel, RecommendationType } from '@/lib/types';
 import { formatDuration, formatDate } from '@/lib/utils';
 import { runAnalysis, getBpmnXml } from '@/lib/api';
@@ -617,51 +618,10 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
               {filtersActive ? 'No bottlenecks match current filters.' : 'No bottlenecks detected.'}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-800">
-                    <th className="text-left px-4 py-2 text-xs text-zinc-500 font-medium">
-                      <InlineTooltip text="Activity pair with detected delay — automating the handoff eliminates waiting time">Transition</InlineTooltip>
-                    </th>
-                    <th className="text-right px-4 py-2 text-xs text-zinc-500 font-medium">
-                      <InlineTooltip text="Average delay between steps — this is recoverable time if the handoff is automated">Avg Wait</InlineTooltip>
-                    </th>
-                    <th className="text-right px-4 py-2 text-xs text-zinc-500 font-medium">
-                      <InlineTooltip text="Worst-case delay observed — shows the upper bound of process friction at this handoff">Max Wait</InlineTooltip>
-                    </th>
-                    <th className="text-right px-4 py-2 text-xs text-zinc-500 font-medium">
-                      <InlineTooltip text="Cases affected — more cases = broader impact when this bottleneck is resolved">Cases</InlineTooltip>
-                    </th>
-                    <th className="text-center px-4 py-2 text-xs text-zinc-500 font-medium">
-                      <InlineTooltip text="Impact level — critical/high bottlenecks should be prioritized for automation">Severity</InlineTooltip>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleBottlenecks.map((bn, i) => (
-                    <tr key={i} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
-                      <td className="px-4 py-3 text-zinc-200">
-                        <span className="text-zinc-400">{bn.from_activity}</span>
-                        <span className="mx-2 text-zinc-500">{'\u2192'}</span>
-                        <span>{bn.to_activity}</span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-zinc-400">
-                        {formatDuration(bn.avg_wait_seconds)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-zinc-400">
-                        {formatDuration(bn.max_wait_seconds)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-zinc-400">
-                        {bn.case_count?.toLocaleString() ?? '—'}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <SeverityBadge severity={bn.severity} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="divide-y divide-zinc-800/60">
+              {visibleBottlenecks.map((bn, i) => (
+                <BottleneckRow key={i} bottleneck={bn} />
+              ))}
             </div>
           )}
           {filteredBottlenecks.length > 15 && (
@@ -1097,6 +1057,60 @@ function BpmnTabContent({
 
       {/* Diagram renders immediately from pipeline data — no XML loading needed */}
       <BpmnViewer pipeline={pipeline} recommendations={recommendations} />
+    </div>
+  );
+}
+
+function BottleneckRow({ bottleneck }: { bottleneck: import('@/lib/types').Bottleneck }) {
+  const [open, setOpen] = useState(false);
+  const fmt = (() => {
+    const from = bottleneck.from_activity;
+    const to = bottleneck.to_activity;
+    const isRework = from === to;
+    return { from, to, isRework };
+  })();
+
+  return (
+    <div
+      className={`px-4 py-3 cursor-pointer transition-colors ${open ? 'bg-zinc-800/40' : 'hover:bg-zinc-800/20'}`}
+      onClick={() => setOpen(v => !v)}
+    >
+      {/* Row header */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <svg
+          width="11" height="11" viewBox="0 0 12 12" fill="none"
+          className={`shrink-0 text-zinc-500 transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
+        >
+          <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        <div className="flex-1 text-sm text-zinc-200 flex items-center gap-2 flex-wrap min-w-0">
+          {fmt.isRework ? (
+            <>
+              <span className="text-amber-300 font-medium truncate">{fmt.from}</span>
+              <span className="text-[10px] text-amber-500 bg-amber-950/40 border border-amber-900/40 px-1.5 py-0.5 rounded font-semibold shrink-0">↩ rework</span>
+            </>
+          ) : (
+            <>
+              <span className="text-zinc-400 truncate">{fmt.from}</span>
+              <span className="text-zinc-600 shrink-0">→</span>
+              <span className="truncate">{fmt.to}</span>
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-3 shrink-0 text-xs text-zinc-500">
+          <span className="font-mono text-zinc-300">{formatDuration(bottleneck.avg_wait_seconds)}</span>
+          <span className="font-mono">max {formatDuration(bottleneck.max_wait_seconds)}</span>
+          <span>{bottleneck.case_count} cases</span>
+          <SeverityBadge severity={bottleneck.severity} />
+        </div>
+      </div>
+
+      {/* Expandable insight */}
+      {open && (
+        <div className="mt-3 pl-5">
+          <BottleneckInsight bottleneck={bottleneck} compact showSummary={false} />
+        </div>
+      )}
     </div>
   );
 }

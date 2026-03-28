@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import type { PipelineOutput, CopilotOutput, Activity } from '@/lib/types';
 import { formatDuration } from '@/lib/utils';
 import { normalizeActivityName, formatBottleneckTransition } from '@/lib/format-names';
+import { BottleneckInsight } from './bottleneck-insight';
 
 const HOURLY_RATE = 50; // € per hour — conservative loaded cost
 const PASSIVE_APPS = new Set(['Teams', 'Outlook', 'New Outlook', 'Slack', 'Gmail', 'Zoom', 'Meet']);
@@ -167,7 +168,7 @@ export function ExecutiveDashboard({ pipeline, copilot }: ExecutiveDashboardProp
     ? formatBottleneckTransition(worstBn.from_activity, worstBn.to_activity)
     : null;
 
-  const totalPotentialSavings = wins.reduce((s, w) => s + w.eurPerMonth, 0);
+const totalPotentialSavings = wins.reduce((s, w) => s + w.eurPerMonth, 0);
   const wastePct = timeBreakdown.copy_paste + timeBreakdown.waiting + timeBreakdown.coordination;
 
   // Donut: conic-gradient segments (core → copy_paste → coordination → waiting)
@@ -310,34 +311,27 @@ export function ExecutiveDashboard({ pipeline, copilot }: ExecutiveDashboardProp
             <p className="text-xs uppercase tracking-widest text-zinc-500 font-medium">
               Biggest single bottleneck
             </p>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
               <div
-                className="shrink-0 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded"
+                className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded"
                 style={{ backgroundColor: '#f43f5e22', color: '#f43f5e' }}
               >
                 {worstBn.severity}
               </div>
               {bnFmt.isReworkLoop && (
-                <span className="text-[10px] text-amber-400 bg-amber-950/40 border border-amber-900/40 px-2 py-0.5 rounded">
-                  ↩ Rework Loop
+                <span className="text-[10px] text-amber-400 bg-amber-950/40 border border-amber-900/40 px-2 py-0.5 rounded font-semibold">
+                  ↩ Repeated task — not finishing in one go
                 </span>
               )}
             </div>
-            {bnFmt.isReworkLoop ? (
-              <div className="text-sm text-zinc-300 font-medium">
+            {!bnFmt.isReworkLoop && (
+              <div className="flex items-center gap-2 text-sm font-semibold text-zinc-100 flex-wrap">
                 <span className="bg-zinc-800 px-2 py-1 rounded">{bnFmt.from}</span>
-                <p className="text-xs text-zinc-500 mt-1.5">
-                  Employees return to this step repeatedly — indicates corrections or interruptions
-                </p>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-sm text-zinc-300 font-medium flex-wrap">
-                <span className="bg-zinc-800 px-2 py-1 rounded">{bnFmt.from}</span>
-                <span className="text-zinc-600">→</span>
+                <span className="text-zinc-500 text-lg">→</span>
                 <span className="bg-zinc-800 px-2 py-1 rounded">{bnFmt.to}</span>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3 mt-auto">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <p className="text-[10px] text-zinc-500 uppercase tracking-wide">Avg wait</p>
                 <p className="text-2xl font-black text-red-400">{formatDuration(worstBn.avg_wait_seconds)}</p>
@@ -347,15 +341,16 @@ export function ExecutiveDashboard({ pipeline, copilot }: ExecutiveDashboardProp
                 <p className="text-2xl font-black text-zinc-200">{worstBn.case_count}</p>
               </div>
               <div className="col-span-2">
-                <p className="text-[10px] text-zinc-500 uppercase tracking-wide">Total time lost (dataset)</p>
+                <p className="text-[10px] text-zinc-500 uppercase tracking-wide">Total labor lost</p>
                 <p className="text-lg font-bold text-zinc-300">
                   {Math.round(worstBn.avg_wait_seconds * worstBn.case_count / 3600)}h
                   <span className="text-zinc-500 font-normal text-xs ml-1.5">
-                    = {formatEur(Math.round(worstBn.avg_wait_seconds * worstBn.case_count / 3600 * HOURLY_RATE))} in lost labor
+                    = {formatEur(Math.round(worstBn.avg_wait_seconds * worstBn.case_count / 3600 * HOURLY_RATE))}
                   </span>
                 </p>
               </div>
             </div>
+            <BottleneckInsight bottleneck={worstBn} />
           </div>
         )}
       </div>
