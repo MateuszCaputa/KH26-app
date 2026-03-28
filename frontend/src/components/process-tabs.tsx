@@ -140,22 +140,22 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
         <StatCard
           label="Cases"
           value={stats.total_cases.toLocaleString()}
-          tooltip="Number of unique process executions (user sessions) discovered in the event log"
+          tooltip="Unique process executions found — more cases = more reliable automation ROI estimates"
         />
         <StatCard
           label="Events"
           value={stats.total_events.toLocaleString()}
-          tooltip="Total individual user interactions recorded (clicks, keystrokes, app switches)"
+          tooltip="Total user interactions (clicks, keystrokes, app switches) — high counts signal repetitive manual work ripe for automation"
         />
         <StatCard
           label="Activities"
           value={stats.total_activities}
-          tooltip="Distinct process steps identified by grouping raw interactions into meaningful actions"
+          tooltip="Distinct process steps — each is a potential automation target"
         />
         <StatCard
           label="Variants"
           value={stats.total_variants}
-          tooltip="Different paths through the process — more variants = less standardized process"
+          tooltip="Unique process paths — more variants means less standardization and higher automation complexity"
         />
       </div>
 
@@ -236,19 +236,19 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                   <tr className="border-b border-zinc-800">
                     <th className="text-left px-4 py-2 text-xs text-zinc-500 font-medium">Name</th>
                     <th className="text-right px-4 py-2 text-xs text-zinc-500 font-medium">
-                      <InlineTooltip text="How many times this activity appeared across all cases">Freq</InlineTooltip>
+                      <InlineTooltip text="Occurrence count — higher frequency = higher automation ROI">Freq</InlineTooltip>
                     </th>
                     <th className="text-right px-4 py-2 text-xs text-zinc-500 font-medium">
-                      <InlineTooltip text="Average time spent on this activity per occurrence">Avg Duration</InlineTooltip>
+                      <InlineTooltip text="Average time per occurrence — longer steps yield more savings when automated">Avg Duration</InlineTooltip>
                     </th>
                     <th className="text-right px-4 py-2 text-xs text-zinc-500 font-medium">
-                      <InlineTooltip text="Copy-paste operations detected — manual data transfer between systems, prime RPA target">Copy-Paste</InlineTooltip>
+                      <InlineTooltip text="Manual data transfers between apps — high counts are prime RPA automation targets">Copy-Paste</InlineTooltip>
                     </th>
                     <th className="text-right px-4 py-2 text-xs text-zinc-500 font-medium">
-                      <InlineTooltip text="Application switches detected — frequent switching indicates manual cross-system work, a prime automation target">Ctx Switches</InlineTooltip>
+                      <InlineTooltip text="App switches within this step — frequent switching = fragmented cross-system work that automation can eliminate">Ctx Switches</InlineTooltip>
                     </th>
                     <th className="text-left px-4 py-2 text-xs text-zinc-500 font-medium">
-                      <InlineTooltip text="Software applications used during this activity">Applications</InlineTooltip>
+                      <InlineTooltip text="Apps used — multi-app steps often involve manual data transfer between systems">Applications</InlineTooltip>
                     </th>
                   </tr>
                 </thead>
@@ -404,19 +404,19 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                 <thead>
                   <tr className="border-b border-zinc-800">
                     <th className="text-left px-4 py-2 text-xs text-zinc-500 font-medium">
-                      <InlineTooltip text="The pair of activities between which a delay occurs">Transition</InlineTooltip>
+                      <InlineTooltip text="Activity pair with detected delay — automating the handoff eliminates waiting time">Transition</InlineTooltip>
                     </th>
                     <th className="text-right px-4 py-2 text-xs text-zinc-500 font-medium">
-                      <InlineTooltip text="Average waiting time between the two activities across all cases">Avg Wait</InlineTooltip>
+                      <InlineTooltip text="Average delay between steps — this is recoverable time if the handoff is automated">Avg Wait</InlineTooltip>
                     </th>
                     <th className="text-right px-4 py-2 text-xs text-zinc-500 font-medium">
-                      <InlineTooltip text="Longest observed wait — indicates worst-case delay">Max Wait</InlineTooltip>
+                      <InlineTooltip text="Worst-case delay observed — shows the upper bound of process friction at this handoff">Max Wait</InlineTooltip>
                     </th>
                     <th className="text-right px-4 py-2 text-xs text-zinc-500 font-medium">
-                      <InlineTooltip text="Number of process cases that include this transition">Cases</InlineTooltip>
+                      <InlineTooltip text="Cases affected — more cases = broader impact when this bottleneck is resolved">Cases</InlineTooltip>
                     </th>
                     <th className="text-center px-4 py-2 text-xs text-zinc-500 font-medium">
-                      <InlineTooltip text="Severity based on wait time relative to overall process duration">Severity</InlineTooltip>
+                      <InlineTooltip text="Impact level — critical/high bottlenecks should be prioritized for automation">Severity</InlineTooltip>
                     </th>
                   </tr>
                 </thead>
