@@ -39,7 +39,6 @@ const TABS: { id: TabId; label: string; tooltip: string }[] = [
   { id: 'bottlenecks', label: 'Bottlenecks', tooltip: 'Transitions with the highest waiting time — critical handoffs that slow down the entire process' },
   { id: 'variants', label: 'Process Paths', tooltip: 'All unique paths through the process — more variants means less standardization and harder automation' },
   { id: 'ai', label: 'AI Analysis', tooltip: 'AI-generated recommendations and BPMN model — ask questions about the process in natural language' },
-  { id: 'bpmn', label: 'Workflow Diagram', tooltip: 'Under construction — this feature is being redesigned' },
   { id: 'live', label: 'Live Monitor', tooltip: 'Real-time activity feed — watch the process as it happens and track active cases' },
 ];
 
