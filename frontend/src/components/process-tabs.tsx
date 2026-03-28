@@ -91,6 +91,8 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
 
   const [showAllBottlenecks, setShowAllBottlenecks] = useState(false);
   const [showAllActivities, setShowAllActivities] = useState(false);
+  const [showAllApps, setShowAllApps] = useState(false);
+  const [showAllPerformers, setShowAllPerformers] = useState(false);
   const [recImpact, setRecImpact] = useState<ImpactLevel[]>([]);
   const [recType, setRecType] = useState<RecommendationType[]>([]);
 
@@ -378,7 +380,9 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
             const visibleApps = appsInFilteredActivities
               ? application_usage.filter((a) => appsInFilteredActivities.has(a.application))
               : application_usage;
-            const filteredMax = Math.max(...visibleApps.map((a) => a.total_duration_seconds), 1);
+            const sortedApps = [...visibleApps].sort((a, b) => b.total_duration_seconds - a.total_duration_seconds);
+            const displayedApps = showAllApps ? sortedApps : sortedApps.slice(0, 10);
+            const filteredMax = Math.max(...sortedApps.map((a) => a.total_duration_seconds), 1);
             return (
             <CollapsibleSection
               title="Application Usage"
@@ -393,32 +397,38 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                 </div>
               )}
               <div className="p-4 space-y-3">
-                {[...visibleApps]
-                  .sort((a, b) => b.total_duration_seconds - a.total_duration_seconds)
-                  .map((app) => {
-                    const pct = filteredMax > 0 ? (app.total_duration_seconds / filteredMax) * 100 : 0;
-                    const activePct = app.total_duration_seconds > 0
-                      ? (app.active_duration_seconds / app.total_duration_seconds) * 100
-                      : 0;
-                    return (
-                      <div key={app.application} className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-zinc-300">{app.application}</span>
-                          <span className="text-zinc-500 font-mono">
-                            {formatDuration(app.total_duration_seconds)}
-                          </span>
-                        </div>
-                        <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-blue-600 rounded-full" style={{ width: `${pct}%` }} />
-                        </div>
-                        <div className="text-xs text-zinc-600">{activePct.toFixed(0)}% active</div>
+                {displayedApps.map((app) => {
+                  const pct = filteredMax > 0 ? (app.total_duration_seconds / filteredMax) * 100 : 0;
+                  const activePct = app.total_duration_seconds > 0
+                    ? (app.active_duration_seconds / app.total_duration_seconds) * 100
+                    : 0;
+                  return (
+                    <div key={app.application} className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-zinc-300">{app.application}</span>
+                        <span className="text-zinc-500 font-mono">
+                          {formatDuration(app.total_duration_seconds)}
+                        </span>
                       </div>
-                    );
-                  })}
-                {visibleApps.length === 0 && (
+                      <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-600 rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="text-xs text-zinc-600">{activePct.toFixed(0)}% active</div>
+                    </div>
+                  );
+                })}
+                {sortedApps.length === 0 && (
                   <p className="text-xs text-zinc-500 text-center py-2">No application data for selected filters.</p>
                 )}
               </div>
+              {sortedApps.length > 10 && (
+                <button
+                  onClick={() => setShowAllApps(!showAllApps)}
+                  className="w-full py-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors border-t border-zinc-800"
+                >
+                  {showAllApps ? 'Show less' : `Show all ${sortedApps.length} applications`}
+                </button>
+              )}
             </CollapsibleSection>
             );
           })()}
@@ -463,6 +473,7 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
           {/* Performer Analysis */}
           {filteredPerformers.length > 0 && (() => {
             const performers = filteredPerformers;
+            const displayedPerformers = showAllPerformers ? performers : performers.slice(0, 10);
             const maxEvents = Math.max(...performers.map((p) => p.total_events));
             const fastest = performers.reduce((a, b) => a.avg_activity_duration_seconds < b.avg_activity_duration_seconds ? a : b);
             const slowest = performers.reduce((a, b) => a.avg_activity_duration_seconds > b.avg_activity_duration_seconds ? a : b);
@@ -484,7 +495,7 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                       </tr>
                     </thead>
                     <tbody>
-                      {performers.map((p) => {
+                      {displayedPerformers.map((p) => {
                         const isFastest = p.user === fastest.user && performers.length > 1;
                         const isSlowest = p.user === slowest.user && performers.length > 1;
                         const barPct = maxEvents > 0 ? (p.total_events / maxEvents) * 100 : 0;
@@ -516,6 +527,14 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                     </tbody>
                   </table>
                 </div>
+                {performers.length > 10 && (
+                  <button
+                    onClick={() => setShowAllPerformers(!showAllPerformers)}
+                    className="w-full py-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors border-t border-zinc-800"
+                  >
+                    {showAllPerformers ? 'Show less' : `Show all ${performers.length} users`}
+                  </button>
+                )}
               </CollapsibleSection>
             );
           })()}
