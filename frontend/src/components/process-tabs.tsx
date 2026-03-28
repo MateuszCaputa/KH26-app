@@ -203,6 +203,26 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
               sub="unique users and applications"
               tooltip="Number of distinct employees and software applications observed in the event log"
             />
+            <StatCard
+              label="Top Bottleneck"
+              value={
+                sortedBottlenecks.length > 0
+                  ? `${sortedBottlenecks[0].from_activity} → ${sortedBottlenecks[0].to_activity}`
+                  : 'None'
+              }
+              sub={
+                sortedBottlenecks.length > 0
+                  ? `${sortedBottlenecks[0].severity} · ${formatDuration(sortedBottlenecks[0].avg_wait_seconds)} avg wait`
+                  : undefined
+              }
+              tooltip="Highest-severity bottleneck transition — the biggest source of delay in the process"
+            />
+            <StatCard
+              label="Automation Candidates"
+              value={activities.filter((a) => a.copy_paste_count > 10).length}
+              sub="activities with >10 copy-paste ops"
+              tooltip="Activities with heavy copy-paste operations (>10) that are strong candidates for RPA automation"
+            />
           </div>
 
           {/* Top activities table */}
