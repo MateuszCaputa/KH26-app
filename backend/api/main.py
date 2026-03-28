@@ -13,6 +13,7 @@ LOCAL_DATASET_DIR = REPO_ROOT / "Dataset"
 from fastapi import FastAPI, UploadFile, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
+from pydantic import BaseModel
 
 from backend.api.store import ProcessStore
 
@@ -205,6 +206,85 @@ async def get_bpmn(process_id: str):
         raise HTTPException(202, detail="BPMN not yet generated — run analyze first")
 
     return Response(content=copilot["bpmn_xml"], media_type="application/xml")
+
+
+class AskRequest(BaseModel):
+    question: str
+
+
+@app.post("/api/process/{process_id}/ask")
+async def ask_process(process_id: str, body: AskRequest):
+    """Answer a natural-language question about the process using Gemini."""
+    entry = store.get(process_id)
+    if not entry:
+        raise HTTPException(404, f"Process {process_id} not found")
+
+    pipeline_data = entry.get("pipeline_output")
+    if not pipeline_data:
+        raise HTTPException(400, "Run pipeline first")
+
+    copilot_data = entry.get("copilot_output")
+
+    # Build context from pipeline + copilot data
+    stats = pipeline_data.get("statistics", {})
+    activities = pipeline_data.get("activities", [])
+    bottlenecks = pipeline_data.get("bottlenecks", [])
+
+    top_activities = sorted(activities, key=lambda a: a.get("frequency", 0), reverse=True)[:10]
+    act_lines = [
+        f"- {a['name']}: freq={a['frequency']}, avg_dur={a.get('avg_duration_seconds', 0):.1f}s, "
+        f"copy_paste={a.get('copy_paste_count', 0)}, apps={a.get('applications', [])}"
+        for a in top_activities
+    ]
+
+    top_bn = sorted(bottlenecks, key=lambda b: b.get("avg_wait_seconds", 0), reverse=True)[:5]
+    bn_lines = [
+        f"- {b['from_activity']} → {b['to_activity']}: avg_wait={b.get('avg_wait_seconds', 0):.1f}s, "
+        f"severity={b.get('severity', '?')}, cases={b.get('case_count', 0)}"
+        for b in top_bn
+    ]
+
+    rec_lines = []
+    if copilot_data and copilot_data.get("recommendations"):
+        for r in copilot_data["recommendations"][:5]:
+            rec_lines.append(
+                f"- [{r.get('type', '?')}] {r.get('target', '?')}: {r.get('reasoning', '')[:120]}"
+            )
+
+    context = (
+        f"Process Statistics:\n"
+        f"  Cases: {stats.get('total_cases', '?')}, Events: {stats.get('total_events', '?')}, "
+        f"Activities: {stats.get('total_activities', '?')}, Variants: {stats.get('total_variants', '?')}\n"
+        f"  Users: {stats.get('total_users', '?')}, Apps: {stats.get('total_applications', '?')}\n"
+        f"  Avg case duration: {stats.get('avg_case_duration_seconds', 0):.0f}s\n\n"
+        f"Top 10 Activities:\n" + "\n".join(act_lines) + "\n\n"
+        f"Top 5 Bottlenecks:\n" + "\n".join(bn_lines) + "\n\n"
+    )
+    if rec_lines:
+        context += f"Top 5 Recommendations:\n" + "\n".join(rec_lines) + "\n"
+
+    system_prompt = (
+        "You are a process mining analyst. Answer questions about this process using ONLY "
+        "the data provided below. Be specific with numbers. Keep answers concise (2-4 sentences). "
+        "If the data doesn't contain enough information to answer, say so."
+    )
+
+    from backend.copilot.llm import call_llm
+    answer = call_llm(
+        prompt=f"PROCESS DATA:\n{context}\n\nQUESTION: {body.question}",
+        system=system_prompt,
+        max_tokens=512,
+    )
+
+    if not answer:
+        answer = (
+            f"AI query requires Gemini API key. The data shows "
+            f"{stats.get('total_activities', '?')} activities across "
+            f"{stats.get('total_cases', '?')} cases with "
+            f"{stats.get('total_variants', '?')} process variants."
+        )
+
+    return {"answer": answer}
 
 
 REFERENCE_BPMN_PATH = LOCAL_DATASET_DIR / "model (67).bpmn"

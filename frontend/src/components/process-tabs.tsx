@@ -10,6 +10,7 @@ import { InlineTooltip } from './tooltip';
 import { LiveMonitor } from './live-monitor';
 import { HealthScore } from './health-score';
 import { RoiCalculator } from './roi-calculator';
+import { AskProcess } from './ask-process';
 import type { PipelineOutput, CopilotOutput } from '@/lib/types';
 import { formatDuration, formatDate } from '@/lib/utils';
 import { runAnalysis, getBpmnXml } from '@/lib/api';
@@ -500,6 +501,8 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
       {/* Tab: AI Analysis */}
       {activeTab === 'ai' && (
         <div className="space-y-6">
+          <AskProcess processId={processId} />
+
           {!copilot && !isPending && (
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-8 text-center space-y-4">
               <div>

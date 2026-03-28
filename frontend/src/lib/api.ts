@@ -86,6 +86,14 @@ export async function getBpmnXml(processId: string): Promise<string> {
   return res.text();
 }
 
+export async function askProcess(processId: string, question: string): Promise<{ answer: string }> {
+  return request<{ answer: string }>(`/api/process/${processId}/ask`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question }),
+  });
+}
+
 export async function getReferenceBpmn(): Promise<string> {
   const res = await fetch(`${API_BASE}/api/reference-bpmn`, {
     headers: { Accept: 'application/xml, text/xml, */*' },
