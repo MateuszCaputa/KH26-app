@@ -135,6 +135,25 @@ export interface Recommendation {
   automation_type: string;
 }
 
+export interface AutomationStep {
+  action: string;
+  description: string;
+  target_app?: string | null;
+}
+
+export interface AutomationBlueprint {
+  blueprint_id: string;
+  name: string;
+  target_activity: string;
+  automation_type: string;
+  trigger_description: string;
+  steps: AutomationStep[];
+  technology_stack: string[];
+  complexity: string;
+  estimated_dev_hours: number;
+  prerequisites: string[];
+}
+
 export interface CopilotOutput {
   process_id: string;
   summary: string;
@@ -143,6 +162,7 @@ export interface CopilotOutput {
   reference_bpmn_comparison: string | null;
   decision_rules: unknown[];
   process_variables: unknown[];
+  blueprints?: AutomationBlueprint[];
 }
 
 export interface ApiError {

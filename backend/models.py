@@ -156,6 +156,25 @@ class ProcessVariable(BaseModel):
     source_step: str | None = None
 
 
+class AutomationStep(BaseModel):
+    action: str
+    description: str
+    target_app: str | None = None
+
+
+class AutomationBlueprint(BaseModel):
+    blueprint_id: str
+    name: str
+    target_activity: str
+    automation_type: str
+    trigger_description: str
+    steps: list[AutomationStep]
+    technology_stack: list[str] = []
+    complexity: str = "medium"
+    estimated_dev_hours: float = 8.0
+    prerequisites: list[str] = []
+
+
 class CopilotOutput(BaseModel):
     process_id: str
     summary: str
@@ -164,3 +183,4 @@ class CopilotOutput(BaseModel):
     decision_rules: list[DecisionRule] = []
     process_variables: list[ProcessVariable] = []
     reference_bpmn_comparison: str | None = None
+    blueprints: list[AutomationBlueprint] = []

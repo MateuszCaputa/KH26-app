@@ -654,13 +654,33 @@ export function ProcessTabs({ pipeline, processId }: ProcessTabsProps) {
                 <CollapsibleSection
                   title={`Recommendations (${copilot.recommendations.length})`}
                   tooltip="Ranked automation opportunities — each recommendation targets a specific activity with a suggested action type (automate, eliminate, simplify, parallelize, or reassign)"
+                  trailing={
+                    copilot.blueprints && copilot.blueprints.length > 0 ? (
+                      <button
+                        onClick={() => {
+                          const blob = new Blob([JSON.stringify(copilot.blueprints, null, 2)], { type: 'application/json' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `blueprints-${processId}.json`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }}
+                        className="text-xs px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded border border-zinc-700 transition-colors"
+                        aria-label="Download all automation blueprints as JSON"
+                      >
+                        Download All Blueprints
+                      </button>
+                    ) : undefined
+                  }
                 >
                   <div className="p-4 space-y-3">
                     {[...copilot.recommendations]
                       .sort((a, b) => a.priority - b.priority)
-                      .map((rec) => (
-                        <RecommendationCard key={rec.id} recommendation={rec} />
-                      ))}
+                      .map((rec) => {
+                        const bp = copilot.blueprints?.find((b) => b.target_activity === rec.target);
+                        return <RecommendationCard key={rec.id} recommendation={rec} blueprint={bp} />;
+                      })}
                   </div>
                 </CollapsibleSection>
               )}

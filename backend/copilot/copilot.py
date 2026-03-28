@@ -7,6 +7,7 @@ from backend.copilot.analyzer import generate_summary
 from backend.copilot.recommender import generate_recommendations
 from backend.copilot.bpmn_generator import generate_bpmn
 from backend.copilot.comparison import compare_with_reference
+from backend.copilot.blueprints import generate_blueprints
 
 
 DEFAULT_REFERENCE_BPMN = os.path.join(
@@ -30,10 +31,13 @@ def run_copilot(
     if os.path.exists(bpmn_path):
         reference_comparison = compare_with_reference(pipeline_output, bpmn_path)
 
+    blueprints = generate_blueprints(recommendations, pipeline_output)
+
     return CopilotOutput(
         process_id=pipeline_output.process_id,
         summary=summary,
         recommendations=recommendations,
         bpmn_xml=bpmn_xml,
         reference_bpmn_comparison=reference_comparison,
+        blueprints=blueprints,
     )
