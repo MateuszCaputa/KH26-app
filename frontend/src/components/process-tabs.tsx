@@ -896,17 +896,23 @@ function VariantCard({
     <div className={`bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex items-start gap-4 ${isHappyPath ? 'border-l-2 border-l-green-500' : ''}`}>
       <div className="text-right min-w-[64px]">
         <div className="flex items-center justify-end gap-1.5">
-          <p className="text-sm font-semibold font-mono text-zinc-100">
-            {v.percentage.toFixed(1)}%
-          </p>
+          <InlineTooltip text="Percentage of all recorded cases that followed this exact path. Higher = more common.">
+            <p className="text-sm font-semibold font-mono text-zinc-100">
+              {v.percentage.toFixed(1)}%
+            </p>
+          </InlineTooltip>
         </div>
-        <p className="text-xs text-zinc-500 mt-0.5">
-          {v.case_count.toLocaleString()} cases
-        </p>
-        {v.avg_total_duration_seconds > 0 && (
-          <p className="text-xs text-zinc-600 mt-0.5">
-            {formatDuration(v.avg_total_duration_seconds)}
+        <InlineTooltip text="Number of unique process executions (user sessions) that followed this variant.">
+          <p className="text-xs text-zinc-500 mt-0.5">
+            {v.case_count.toLocaleString()} cases
           </p>
+        </InlineTooltip>
+        {v.avg_total_duration_seconds > 0 && (
+          <InlineTooltip text="Average time from first to last step in this variant. Shorter = more efficient path.">
+            <p className="text-xs text-zinc-600 mt-0.5">
+              {formatDuration(v.avg_total_duration_seconds)}
+            </p>
+          </InlineTooltip>
         )}
         {v.sequence.length > 5 && (
           <p className="text-xs text-zinc-600 mt-0.5">
@@ -914,9 +920,11 @@ function VariantCard({
           </p>
         )}
         {deviationCount > 0 && v.sequence.length > 3 && (
-          <p className="text-xs text-amber-500 mt-0.5">
-            {deviationCount} deviation{deviationCount !== 1 ? 's' : ''}
-          </p>
+          <InlineTooltip text="Steps in this variant that don't appear in the most common (happy) path — highlighted in orange. High deviation count signals non-standard process execution.">
+            <p className="text-xs text-amber-500 mt-0.5">
+              {deviationCount} deviation{deviationCount !== 1 ? 's' : ''}
+            </p>
+          </InlineTooltip>
         )}
       </div>
       <div className="flex-1">

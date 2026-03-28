@@ -32,18 +32,24 @@ export function RoiCalculator({ recommendations, pipeline }: RoiCalculatorProps)
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
           <div>
             <p className="text-xs text-zinc-500 uppercase tracking-wide mb-1">Estimated Annual Savings</p>
-            <p className="text-4xl font-bold text-green-400 tabular-nums">
-              ${totalAnnualCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-            </p>
-            <p className="text-sm text-zinc-500 mt-1">
-              {totalMonthlyHours.toLocaleString(undefined, { maximumFractionDigits: 1 })} hours/month recovered across {recommendations.length} automation targets
-            </p>
+            <InlineTooltip text="Total annual cost savings if all recommended automations are implemented. Calculated as: monthly savings × 12. Adjust hourly rate and case volume below to match your organisation.">
+              <p className="text-4xl font-bold text-green-400 tabular-nums cursor-help">
+                ${totalAnnualCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </p>
+            </InlineTooltip>
+            <InlineTooltip text="Total working hours recovered per month across all automation targets, based on estimated time saved per case × monthly case volume.">
+              <p className="text-sm text-zinc-500 mt-1 cursor-help">
+                {totalMonthlyHours.toLocaleString(undefined, { maximumFractionDigits: 1 })} hours/month recovered across {recommendations.length} automation targets
+              </p>
+            </InlineTooltip>
           </div>
           <div className="text-right">
             <p className="text-xs text-zinc-500 mb-0.5">Monthly</p>
-            <p className="text-xl font-semibold text-green-400/80 tabular-nums">
-              ${totalMonthlyCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-            </p>
+            <InlineTooltip text="Monthly cost savings: total hours saved per month × hourly rate. Scale this up for your actual case volume using the slider below.">
+              <p className="text-xl font-semibold text-green-400/80 tabular-nums cursor-help">
+                ${totalMonthlyCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </p>
+            </InlineTooltip>
           </div>
         </div>
 

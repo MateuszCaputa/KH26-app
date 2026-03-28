@@ -65,19 +65,25 @@ export function HealthScore({ pipeline }: HealthScoreProps) {
 
       <div className="flex gap-6 text-xs">
         <div>
-          <span className="text-zinc-500">Standardization</span>
+          <InlineTooltip text="Process standardization score (0–100). Based on number of unique variants — fewer variants means employees follow consistent procedures. Score = max(0, 100 − variants × 3).">
+            <span className="text-zinc-500 cursor-help">Standardization</span>
+          </InlineTooltip>
           <span className={`ml-1.5 font-mono font-medium ${scoreTextColor(standardization)}`}>
             {Math.round(standardization)}
           </span>
         </div>
         <div>
-          <span className="text-zinc-500">Bottlenecks</span>
+          <InlineTooltip text="Bottleneck health score (0–100). Penalizes critical (−25), high (−10), and medium (−3) severity bottlenecks. Lower score = more waiting time in the process.">
+            <span className="text-zinc-500 cursor-help">Bottlenecks</span>
+          </InlineTooltip>
           <span className={`ml-1.5 font-mono font-medium ${scoreTextColor(bottleneckHealth)}`}>
             {Math.round(bottleneckHealth)}
           </span>
         </div>
         <div>
-          <span className="text-zinc-500">Automation</span>
+          <InlineTooltip text="Automation burden score (0–100). Based on copy-paste operations relative to total events. High copy-paste ratio = heavy manual data transfer = lower score.">
+            <span className="text-zinc-500 cursor-help">Automation</span>
+          </InlineTooltip>
           <span className={`ml-1.5 font-mono font-medium ${scoreTextColor(automationBurden)}`}>
             {Math.round(automationBurden)}
           </span>

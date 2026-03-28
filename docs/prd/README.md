@@ -17,6 +17,7 @@ Demo: 2026-03-28 17:30
 | 9 | [PRD-14: Before/After](PRD-14-before-after-process.md) | P2 proof of value | pending |
 | 10 | [PRD-15: Automation Blueprints](PRD-15-automation-blueprints.md) | P2 downloadable blueprints | pending |
 | 11 | [PRD-16: Hidden Insights, Tooltips & Filters](PRD-16-discovery-filters-tooltips.md) | P0 depth + UX polish | pending |
+| 12 | [PRD-17: Tooltips na metrykach](PRD-16-tooltips.md) | P1 czytelność demo | done |
 
 ## Already Completed
 

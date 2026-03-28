@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { Recommendation, PipelineOutput } from '@/lib/types';
+import { InlineTooltip } from './tooltip';
 
 interface AutomationMatrixProps {
   recommendations: Recommendation[];
@@ -73,7 +74,11 @@ export function AutomationMatrix({ recommendations, pipeline }: AutomationMatrix
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-      <h4 className="text-sm font-semibold text-zinc-100 mb-1">Automation Readiness Matrix</h4>
+      <h4 className="text-sm font-semibold text-zinc-100 mb-1">
+        <InlineTooltip text="Scatter plot of automation candidates. X axis = implementation complexity (number of apps + performers + bottleneck involvement). Y axis = automation value (time saved × % cases affected). Dot size = activity frequency. Aim for top-left: high value, low complexity.">
+          Automation Readiness Matrix
+        </InlineTooltip>
+      </h4>
       <p className="text-xs text-zinc-500 mb-3">
         Each dot is an automation target. Position shows value vs complexity.
       </p>
@@ -130,12 +135,29 @@ export function AutomationMatrix({ recommendations, pipeline }: AutomationMatrix
 
       {/* Legend */}
       <div className="flex flex-wrap gap-3 mt-3 text-[10px] text-zinc-500">
-        {Object.entries(TYPE_COLORS).map(([type, color]) => (
-          <div key={type} className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-            {type}
-          </div>
+        {[
+          { type: 'automate', color: TYPE_COLORS.automate, tip: 'Replace manual steps with RPA or system integration' },
+          { type: 'eliminate', color: TYPE_COLORS.eliminate, tip: 'Remove unnecessary steps that add no value' },
+          { type: 'simplify', color: TYPE_COLORS.simplify, tip: 'Reduce complexity or number of sub-steps' },
+          { type: 'parallelize', color: TYPE_COLORS.parallelize, tip: 'Run steps concurrently instead of sequentially' },
+          { type: 'reassign', color: TYPE_COLORS.reassign, tip: 'Move task to a more appropriate role or system' },
+        ].map(({ type, color, tip }) => (
+          <InlineTooltip key={type} text={tip}>
+            <div className="flex items-center gap-1 cursor-help">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+              {type}
+            </div>
+          </InlineTooltip>
         ))}
+        <InlineTooltip text="Dot size represents activity frequency — larger dots appear more often in the process log and have higher impact when automated">
+          <div className="flex items-center gap-1 cursor-help">
+            <span className="inline-flex gap-0.5 items-end">
+              <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+              <span className="w-2.5 h-2.5 rounded-full bg-zinc-500" />
+            </span>
+            dot size = frequency
+          </div>
+        </InlineTooltip>
       </div>
     </div>
   );
